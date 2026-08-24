@@ -2,6 +2,10 @@
 target/
 *.class
 
+# 前端
+node_modules/
+dist/
+
 # 环境与密钥
 .env
 

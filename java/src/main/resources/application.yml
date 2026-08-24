@@ -16,3 +16,59 @@ management:
     web:
       exposure:
         include: health,info
+
+# ---------- MyBatis-Plus ----------
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  global-config:
+    banner: false
+    db-config:
+      id-type: assign_id                      # 主键：雪花算法
+      logic-delete-field: deleted             # 逻辑删除
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: true
+
+# ---------- API 文档（knife4j） ----------
+springdoc:
+  api-docs:
+    enabled: true
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+# ---------- 业务配置 ----------
+jwt:
+  secret: ${JWT_SECRET}
+  expire-minutes: ${JWT_EXPIRE_MINUTES:1440}   # 24h
+
+captcha:
+  expire-minutes: 5                            # 验证码有效期
+
+login:
+  fail-max-count: ${LOGIN_FAIL_MAX:5}          # 连续失败 N 次锁定
+  lock-minutes: ${LOGIN_LOCK_MINUTES:15}       # 锁定时长
+
+storage:
+  mode: ${STORAGE_MODE:local}                  # local=本地磁盘 / cos=腾讯云 COS
+
+cos:
+  secret-id: ${COS_SECRET_ID:}
+  secret-key: ${COS_SECRET_KEY:}
+  region: ${COS_REGION:}
+  bucket: ${COS_BUCKET:}
+  domain: ${COS_DOMAIN:}                       # 自定义域名（空则用 COS 默认域名）
+
+upload:
+  local-dir: ${LOCAL_UPLOAD_DIR:./uploads}     # local 模式存储目录
+  max-size: ${UPLOAD_MAX_SIZE:5242880}         # 5MB
+  allowed-types: jpg,jpeg,png,gif,webp
+
+# 预设老师账号（模拟旧系统存量数据；生产部署用环境变量覆盖强密码）
+preset:
+  teacher:
+    usernames: ${PRESET_TEACHER_USERNAMES:teacher1,teacher2}
+    password: ${PRESET_TEACHER_PASSWORD:teacher123456}
+    email-domain: ${PRESET_TEACHER_EMAIL_DOMAIN:club.local}
