@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: club-agent
+  profiles:
+    active: dev
+  jackson:
+    time-zone: GMT+8
+    date-format: yyyy-MM-dd HH:mm:ss
+
+server:
+  port: 8093
+
+# 健康检查端点开放
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
