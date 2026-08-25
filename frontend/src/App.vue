@@ -21,6 +21,11 @@ async function onCommand(cmd) {
   <div class="app-shell">
     <header v-if="!isPublic()" class="app-header">
       <div class="brand">社团管理 Agent</div>
+      <el-menu mode="horizontal" :default-active="route.path" router class="nav-menu" :ellipsis="false">
+        <el-menu-item index="/clubs">社团列表</el-menu-item>
+        <el-menu-item index="/my-clubs">我的社团</el-menu-item>
+        <el-menu-item index="/profile">个人中心</el-menu-item>
+      </el-menu>
       <div class="user-area" v-if="userStore.token">
         <el-dropdown @command="onCommand">
           <span class="user-name">
@@ -51,6 +56,8 @@ body { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f
   background: #fff; box-shadow: 0 1px 4px rgba(0, 21, 41, .08);
 }
 .brand { font-size: 17px; font-weight: 600; color: #303133; }
+.nav-menu { flex: 1; margin-left: 24px; border-bottom: none; }
+.user-area { display: flex; align-items: center; }
 .user-name { display: flex; align-items: center; gap: 8px; cursor: pointer; color: #606266; }
 .app-main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
 </style>

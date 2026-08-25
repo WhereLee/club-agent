@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS sys_user (
     email         VARCHAR(100) NOT NULL,                -- 全局唯一
     nickname      VARCHAR(50)  NOT NULL,
     avatar_url    VARCHAR(500),                         -- 对象存储 URL（不存文件本体）
+    is_teacher    BOOLEAN      NOT NULL DEFAULT FALSE, -- 老师身份（全局标记；老师不进 membership，以 club.teacher_id 表达归属）
     status        SMALLINT     NOT NULL DEFAULT 1,      -- 1=正常 0=禁用（老师离职处理）
     last_login_at TIMESTAMP,
     created_at    TIMESTAMP  NOT NULL DEFAULT now(),
@@ -74,24 +75,57 @@ CREATE UNIQUE INDEX uk_membership_user_club ON membership (user_id, club_id);
 CREATE INDEX ix_membership_club ON membership (club_id);
 CREATE INDEX ix_membership_role ON membership (role_id);
 
--- 约束：不能同时担任多个社团的管理层
--- 跨表约束（依赖 rbac_role.is_management）无法用部分唯一索引表达
--- （索引谓词禁止子查询），采用数据库触发器硬性兑底 + 应用层事务内校验给友好提示。
+-- 约束：管理层职务规则（三个硬约束，数据库层兑底，应用层给友好提示）
+-- 1. 跨社团唯一：同一用户不能同时担任多个社团的管理层
+-- 2. 一社团一社长：president 槽位唯一
+-- 3. 副社长上限：vice_president 在职最多 2 人
+-- 跨表约束无法用部分唯一索引表达（索引谓词禁止子查询），采用触发器。
+-- 换届模型：任命只进空位（在职者先离职，role 改回 member），故此处只校验槽位。
 CREATE OR REPLACE FUNCTION fn_check_management_unique() RETURNS TRIGGER AS $$
 DECLARE
+    v_code VARCHAR(50);
     v_is_management BOOLEAN;
+    v_other_management BOOLEAN;
+    v_president_count INT;
+    v_vp_count INT;
 BEGIN
-    SELECT is_management INTO v_is_management FROM rbac_role WHERE id = NEW.role_id;
+    SELECT code, is_management INTO v_code, v_is_management
+    FROM rbac_role WHERE id = NEW.role_id;
+
     IF v_is_management THEN
-        IF EXISTS (
+        -- 1. 跨社团唯一（排除自身）
+        SELECT EXISTS (
             SELECT 1 FROM membership m
             JOIN rbac_role r ON r.id = m.role_id
             WHERE m.user_id = NEW.user_id
               AND m.status = 1
               AND r.is_management
               AND m.id <> NEW.id
-        ) THEN
+        ) INTO v_other_management;
+        IF v_other_management THEN
             RAISE EXCEPTION '该用户已是其他社团的管理层，不能重复任命';
+        END IF;
+
+        -- 2. 一社团一社长（排除自身，即角色变更场景）
+        IF v_code = 'president' THEN
+            SELECT count(*) INTO v_president_count FROM membership m
+            JOIN rbac_role r ON r.id = m.role_id
+            WHERE m.club_id = NEW.club_id AND m.status = 1
+              AND r.code = 'president' AND m.id <> NEW.id;
+            IF v_president_count > 0 THEN
+                RAISE EXCEPTION '该社团已有在职社长，需现任社长先离职';
+            END IF;
+        END IF;
+
+        -- 3. 副社长上限 2 人（排除自身）
+        IF v_code = 'vice_president' THEN
+            SELECT count(*) INTO v_vp_count FROM membership m
+            JOIN rbac_role r ON r.id = m.role_id
+            WHERE m.club_id = NEW.club_id AND m.status = 1
+              AND r.code = 'vice_president' AND m.id <> NEW.id;
+            IF v_vp_count >= 2 THEN
+                RAISE EXCEPTION '该社团副社长已满（最多 2 人），需现任副社长先离职';
+            END IF;
         END IF;
     END IF;
     RETURN NEW;

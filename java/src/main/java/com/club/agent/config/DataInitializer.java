@@ -155,6 +155,7 @@ public class DataInitializer implements ApplicationRunner {
             teacher.setPasswordHash(passwordEncoder.encode(teacherPassword));
             teacher.setEmail(u + "@" + emailDomain);
             teacher.setNickname("指导老师-" + u);
+            teacher.setIsTeacher(true);
             teacher.setStatus(1);
             userMapper.insert(teacher);
             log.info("预设老师账号: {}（密码见配置，生产环境需覆盖）", u);

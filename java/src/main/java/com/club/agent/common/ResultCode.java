@@ -28,7 +28,22 @@ public enum ResultCode {
     BIZ_FILE_TOO_LARGE(1009, "文件大小超出限制"),
     BIZ_FILE_TYPE_ERROR(1010, "文件类型不支持"),
     BIZ_UPLOAD_FAIL(1011, "文件上传失败"),
-    BIZ_PASSWORD_FORMAT_ERROR(1012, "密码格式不正确（8-32 位，限字母/数字/常见符号）");
+    BIZ_PASSWORD_FORMAT_ERROR(1012, "密码格式不正确（8-32 位，限字母/数字/常见符号）"),
+
+    // ---- 业务码段（1xxx：社团 / 成员） ----
+    BIZ_CLUB_NAME_EXISTS(1013, "社团名称已存在"),
+    BIZ_ALREADY_MEMBER(1014, "您已是该社团成员"),
+    BIZ_ALREADY_APPLIED(1015, "已提交申请，等待审批"),
+    BIZ_APPLY_HANDLED(1016, "该申请已处理"),
+    BIZ_NOT_CLUB_MEMBER(1017, "您不是该社团成员"),
+    BIZ_NOT_MANAGEMENT(1018, "仅管理层可执行该操作"),
+    BIZ_PRESIDENT_EXISTS(1019, "该社团已有在职社长，需现任社长先离职"),
+    BIZ_VICE_PRESIDENT_FULL(1020, "该社团副社长已满（最多 2 人），需现任副社长先离职"),
+    BIZ_INVALID_ROLE(1021, "角色不合法（仅 president / vice_president）"),
+    BIZ_TEACHER_ONLY(1022, "仅指导老师可执行该操作"),
+    BIZ_APPLY_STUDENT_ONLY(1023, "仅学生可申请加入社团"),
+    BIZ_ALREADY_MANAGEMENT(1024, "该用户已是其他社团的管理层，不能重复任命"),
+    BIZ_ALREADY_APPOINTED(1025, "该成员已是目标职务，无需重复任命");
 
     private final int code;
     private final String message;

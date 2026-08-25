@@ -4,7 +4,10 @@ import com.club.agent.annotation.Log;
 import com.club.agent.common.R;
 import com.club.agent.dto.UpdatePasswordDTO;
 import com.club.agent.dto.UpdateProfileDTO;
+import com.club.agent.service.MembershipService;
 import com.club.agent.service.UserService;
+import com.club.agent.util.SecurityUtils;
+import com.club.agent.vo.MyClubVO;
 import com.club.agent.vo.UserInfoVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -31,6 +35,7 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final MembershipService membershipService;
 
     @GetMapping("/me")
     @Operation(summary = "当前用户信息")
@@ -59,5 +64,11 @@ public class UserController {
     public R<Map<String, String>> updateAvatar(@RequestParam("file") MultipartFile file) {
         String url = userService.updateAvatar(file);
         return R.ok(Map.of("avatarUrl", url));
+    }
+
+    @GetMapping("/clubs")
+    @Operation(summary = "我的社团（状态/角色）")
+    public R<List<MyClubVO>> myClubs() {
+        return R.ok(membershipService.myClubs(SecurityUtils.getUserId()));
     }
 }

@@ -36,6 +36,9 @@ public class SysUser {
     /** 头像 URL（对象存储引用，不存文件本体） */
     private String avatarUrl;
 
+    /** 老师身份（全局标记；老师不进 membership，归属用 club.teacher_id 表达） */
+    private Boolean isTeacher;
+
     /** 状态：1=正常 0=禁用 */
     private Integer status;
 

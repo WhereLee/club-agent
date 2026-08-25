@@ -22,6 +22,9 @@ public class UserInfoVO {
 
     private String avatarUrl;
 
+    /** 老师身份（前端按此显示创建社团入口） */
+    private Boolean isTeacher;
+
     private Integer status;
 
     private LocalDateTime createdAt;

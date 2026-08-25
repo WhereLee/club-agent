@@ -18,7 +18,8 @@ export const useUserStore = defineStore('user', {
         userId: res.data.userId,
         username: res.data.username,
         nickname: res.data.nickname,
-        avatarUrl: res.data.avatarUrl
+        avatarUrl: res.data.avatarUrl,
+        isTeacher: res.data.isTeacher
       }
       localStorage.setItem('club_user', JSON.stringify(this.userInfo))
     },

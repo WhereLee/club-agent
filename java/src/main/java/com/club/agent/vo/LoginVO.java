@@ -19,4 +19,7 @@ public class LoginVO {
     private String nickname;
 
     private String avatarUrl;
+
+    /** 老师身份 */
+    private Boolean isTeacher;
 }
