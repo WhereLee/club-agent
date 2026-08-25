@@ -1,6 +1,7 @@
 package com.club.agent.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.club.agent.common.ResultCode;
 import com.club.agent.entity.Club;
 import com.club.agent.entity.Membership;
@@ -16,6 +17,7 @@ import com.club.agent.util.RoleConstants;
 import com.club.agent.vo.MemberVO;
 import com.club.agent.vo.MyClubVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -54,11 +56,16 @@ public class MembershipServiceImpl implements MembershipService {
             if (existing.getStatus() == Membership.STATUS_PENDING) {
                 throw new BizException(ResultCode.BIZ_ALREADY_APPLIED);
             }
-            // 被拒后重新申请：复用记录，状态回申请中
-            existing.setStatus(Membership.STATUS_PENDING);
-            existing.setRoleId(memberRole.getId());
-            existing.setAppliedAt(LocalDateTime.now());
-            membershipMapper.updateById(existing);
+            // 被拒后重新申请：仅当仍是已拒绝状态才重置（CAS，防与审批并发时覆盖新状态）
+            int rows = membershipMapper.update(null, new LambdaUpdateWrapper<Membership>()
+                    .eq(Membership::getId, existing.getId())
+                    .eq(Membership::getStatus, Membership.STATUS_REJECTED)
+                    .set(Membership::getStatus, Membership.STATUS_PENDING)
+                    .set(Membership::getRoleId, memberRole.getId())
+                    .set(Membership::getAppliedAt, LocalDateTime.now()));
+            if (rows == 0) {
+                throwReapplyConflict(existing.getId());
+            }
             return;
         }
         Membership membership = new Membership();
@@ -67,31 +74,41 @@ public class MembershipServiceImpl implements MembershipService {
         membership.setRoleId(memberRole.getId());
         membership.setStatus(Membership.STATUS_PENDING);
         membership.setAppliedAt(LocalDateTime.now());
-        membershipMapper.insert(membership);
+        try {
+            membershipMapper.insert(membership);
+        } catch (DuplicateKeyException e) {
+            // 并发双击申请：唯一索引兜底，转友好提示
+            throw new BizException(ResultCode.BIZ_ALREADY_APPLIED);
+        }
     }
 
     @Override
     public void approve(Long clubId, Long membershipId, Long operatorId) {
-        Membership membership = requireMembershipOf(clubId, membershipId);
-        if (membership.getStatus() != Membership.STATUS_PENDING) {
+        requireMembershipOf(clubId, membershipId);
+        // CAS 条件更新：仅待审批状态可流转，防并发双击后写覆盖
+        int rows = membershipMapper.update(null, new LambdaUpdateWrapper<Membership>()
+                .eq(Membership::getId, membershipId)
+                .eq(Membership::getStatus, Membership.STATUS_PENDING)
+                .set(Membership::getStatus, Membership.STATUS_APPROVED)
+                .set(Membership::getApprovedBy, operatorId)
+                .set(Membership::getApprovedAt, LocalDateTime.now()));
+        if (rows == 0) {
             throw new BizException(ResultCode.BIZ_APPLY_HANDLED);
         }
-        membership.setStatus(Membership.STATUS_APPROVED);
-        membership.setApprovedBy(operatorId);
-        membership.setApprovedAt(LocalDateTime.now());
-        membershipMapper.updateById(membership);
     }
 
     @Override
     public void reject(Long clubId, Long membershipId, Long operatorId) {
-        Membership membership = requireMembershipOf(clubId, membershipId);
-        if (membership.getStatus() != Membership.STATUS_PENDING) {
+        requireMembershipOf(clubId, membershipId);
+        int rows = membershipMapper.update(null, new LambdaUpdateWrapper<Membership>()
+                .eq(Membership::getId, membershipId)
+                .eq(Membership::getStatus, Membership.STATUS_PENDING)
+                .set(Membership::getStatus, Membership.STATUS_REJECTED)
+                .set(Membership::getApprovedBy, operatorId)
+                .set(Membership::getApprovedAt, LocalDateTime.now()));
+        if (rows == 0) {
             throw new BizException(ResultCode.BIZ_APPLY_HANDLED);
         }
-        membership.setStatus(Membership.STATUS_REJECTED);
-        membership.setApprovedBy(operatorId);
-        membership.setApprovedAt(LocalDateTime.now());
-        membershipMapper.updateById(membership);
     }
 
     @Override
@@ -196,5 +213,20 @@ public class MembershipServiceImpl implements MembershipService {
             throw new BizException("角色未初始化: " + code);
         }
         return role;
+    }
+
+    /** 重新申请 CAS 失败：并发下状态已变化，按最新状态给出准确提示 */
+    private void throwReapplyConflict(Long membershipId) {
+        Membership latest = membershipMapper.selectById(membershipId);
+        if (latest == null) {
+            throw new BizException(ResultCode.NOT_FOUND.getCode(), "成员记录不存在");
+        }
+        if (latest.getStatus() == Membership.STATUS_APPROVED) {
+            throw new BizException(ResultCode.BIZ_ALREADY_MEMBER);
+        }
+        if (latest.getStatus() == Membership.STATUS_PENDING) {
+            throw new BizException(ResultCode.BIZ_ALREADY_APPLIED);
+        }
+        throw new BizException(ResultCode.BIZ_APPLY_HANDLED);
     }
 }

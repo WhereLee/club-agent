@@ -45,18 +45,22 @@ async function onApply() {
 }
 
 async function onApprove(m) {
-  await approveMember(clubId, m.membershipId)
-  ElMessage.success(`已通过 ${m.nickname} 的申请`)
-  load()
+  try {
+    await approveMember(clubId, m.membershipId)
+    ElMessage.success(`已通过 ${m.nickname} 的申请`)
+    load()
+  } catch (e) { /* 拦截器已提示（含防重） */ }
 }
 
 async function onReject(m) {
   try {
     await ElMessageBox.confirm(`确定拒绝 ${m.nickname} 的申请吗？`, '拒绝申请', { type: 'warning' })
   } catch (e) { return }
-  await rejectMember(clubId, m.membershipId)
-  ElMessage.success('已拒绝')
-  load()
+  try {
+    await rejectMember(clubId, m.membershipId)
+    ElMessage.success('已拒绝')
+    load()
+  } catch (e) { /* 拦截器已提示 */ }
 }
 
 async function onAppoint(m, role) {

@@ -1,5 +1,7 @@
 package com.club.agent.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.Builder;
 import lombok.Data;
 
@@ -12,6 +14,8 @@ import java.time.LocalDateTime;
 @Builder
 public class UserInfoVO {
 
+    /** 雪花 ID 超出 JS 安全整数范围，序列化为字符串防前端精度丢失 */
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     private String username;

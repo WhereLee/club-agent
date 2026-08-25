@@ -89,7 +89,7 @@ public class ClubServiceImpl implements ClubService {
         vo.setMyStatus(-1);
 
         // 当前用户身份（老师看自己创建的社团：直接标记为已加入，角色 teacher）
-        if (club.getTeacherId().equals(userId)) {
+        if (club.getTeacherId() != null && club.getTeacherId().equals(userId)) {
             vo.setMyStatus(Membership.STATUS_APPROVED);
             vo.setMyRoleCode("teacher");
             vo.setMyRoleName("指导老师");

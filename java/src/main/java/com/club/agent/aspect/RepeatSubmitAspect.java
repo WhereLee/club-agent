@@ -2,6 +2,7 @@ package com.club.agent.aspect;
 
 import com.club.agent.annotation.RepeatSubmit;
 import com.club.agent.exception.BizException;
+import com.club.agent.util.IpUtils;
 import com.club.agent.util.RedisKeys;
 import com.club.agent.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.Duration;
+import java.util.Arrays;
 
 /**
  * 防重复提交切面：Redis SETNX 幂等标记。
@@ -44,11 +46,11 @@ public class RepeatSubmitAspect {
     private String buildKey(ProceedingJoinPoint pjp) {
         String method = pjp.getSignature().toShortString();
         Long userId = SecurityUtils.getUserId();
-        if (userId != null) {
-            return method + ":" + userId;
-        }
+        String principal = userId != null ? String.valueOf(userId) : "anon";
         ServletRequestAttributes attrs =
                 (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        return method + ":" + (attrs != null ? attrs.getSessionId() : "anon");
+        String ip = attrs != null ? IpUtils.getIp(attrs.getRequest()) : "unknown";
+        // 方法参数参与 key：同一接口不同目标互不干扰（审批 A 不拦审批 B），同一目标双击才互斥
+        return method + ":" + principal + ":" + ip + ":" + Arrays.toString(pjp.getArgs());
     }
 }

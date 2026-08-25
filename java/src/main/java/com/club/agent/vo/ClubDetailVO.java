@@ -1,5 +1,7 @@
 package com.club.agent.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.Data;
 
 /**
@@ -8,6 +10,8 @@ import lombok.Data;
 @Data
 public class ClubDetailVO {
 
+    /** 雪花 ID 超出 JS 安全整数范围，序列化为字符串防前端精度丢失 */
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     private String name;
@@ -28,5 +32,6 @@ public class ClubDetailVO {
     private String myRoleName;
 
     /** 当前用户的 membership id（离职/退出用） */
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long myMembershipId;
 }
