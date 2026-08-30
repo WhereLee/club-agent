@@ -10,8 +10,9 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 活动：概念通过（status=5）后自动创建，活动前/中/后三阶段状态机主表。
- * status：1=公示中 2=问卷中 3=讨论中 4=已发布（正式文件定稿，进入活动中） 5=已取消。
+ * 活动：概念通过后自动创建（status=1 公示中），活动前/中/后三阶段状态机主表。
+ * status：1=公示中 2=问卷中 3=讨论中 4=已发布（正式文件定稿） 5=报名中 6=执行中
+ *         7=留痕中 8=总结中 9=已归档 10=已取消。
  * 唯一性：一个概念只转一个活动（concept_id 唯一约束）。
  */
 @Data
@@ -40,7 +41,7 @@ public class Activity {
     /** 发起人（复制自概念；取消/后续发布动作的权限校验用） */
     private Long userId;
 
-    /** 1=公示中 2=问卷中 3=讨论中 4=已发布 5=已取消 */
+    /** 1=公示中 2=问卷中 3=讨论中 4=已发布 5=报名中 6=执行中 7=留痕中 8=总结中 9=已归档 10=已取消 */
     private Integer status;
 
     private String plannedTime;

@@ -41,6 +41,7 @@ public class AuthController {
 
     @PostMapping("/register")
     @Log(module = "认证", operation = "用户注册")
+    @RateLimiter(limit = 5, windowSeconds = 60)
     @RepeatSubmit(intervalSeconds = 3)
     @Operation(summary = "注册（学生入口）")
     public R<Void> register(@Valid @RequestBody RegisterDTO dto) {
