@@ -18,8 +18,8 @@ import java.time.Duration;
 import java.util.Arrays;
 
 /**
- * 防重复提交切面：Redis SETNX 幂等标记。
- * 执行完成后释放标记（防抖语义），间隔内重复请求直接拒绝。
+ * 防重复提交切面：Redis SETNX 幂等标记（真防抖，C1 契约对齐）。
+ * 成功：标记靠 TTL 自然过期，间隔内重复请求直接拒绝；失败：立即释放标记，允许马上重试（LLM/IO 类接口重试体验）。
  */
 @Aspect
 @Component
@@ -38,8 +38,10 @@ public class RepeatSubmitAspect {
         }
         try {
             return pjp.proceed();
-        } finally {
+        } catch (Throwable e) {
+            // 失败路径立即释放标记：失败可马上重试，防抖只对成功生效
             redisTemplate.delete(key);
+            throw e;
         }
     }
 
