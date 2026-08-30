@@ -4,9 +4,22 @@
 - 用 InMemorySaver 替代 PostgresSaver（无 DB 依赖，CI 可跑；中断/resume 语义一致）
 - mock _llm_json（decide/lessons 的结构化输出）与 _model（draft 的报告生成）
 """
+import os
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+# CI 无 .env：agent_draft.config 模块级 _require 需要这些变量（测试 mock 了 LLM，值随意；
+# 本地有 .env 时 setdefault 不覆盖真实值）。必须在 import agent_draft 之前设置。
+for _k, _v in {
+    "LLM_BASE_URL": "http://localhost:9999/v1",
+    "LLM_API_KEY": "test-key",
+    "LLM_MODEL": "test-model",
+    "SPRING_DATASOURCE_URL": "jdbc:postgresql://localhost:5432/club_agent",
+    "SPRING_DATASOURCE_USERNAME": "postgres",
+    "SPRING_DATASOURCE_PASSWORD": "postgres",
+}.items():
+    os.environ.setdefault(_k, _v)
 
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
