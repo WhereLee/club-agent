@@ -18,3 +18,9 @@ dist/
 logs/
 *.log
 scripts/_*.py
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
