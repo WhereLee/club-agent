@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -37,6 +39,7 @@ public class DataInitializer implements ApplicationRunner {
     private final RbacRolePermissionMapper rolePermissionMapper;
     private final SysUserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final Environment environment;
 
     @Value("${preset.teacher.usernames}")
     private String teacherUsernames;
@@ -46,6 +49,9 @@ public class DataInitializer implements ApplicationRunner {
 
     @Value("${preset.teacher.email-domain}")
     private String emailDomain;
+
+    /** 默认预设密码（application.yml 兜底值）：prod 下检测到即拒绝启动 */
+    private static final String DEFAULT_TEACHER_PASSWORD = "teacher123456";
 
     /** 角色定义：code -> (name, isManagement, sort) */
     private static final Map<String, Object[]> ROLES = new LinkedHashMap<>() {{
@@ -79,8 +85,17 @@ public class DataInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        assertProdTeacherPassword();
         initRbac();
         initTeachers();
+    }
+
+    /** S4：生产环境必须通过 PRESET_TEACHER_PASSWORD 注入强密码，默认值直接拒绝启动（fail-fast） */
+    private void assertProdTeacherPassword() {
+        if (environment.acceptsProfiles(Profiles.of("prod")) && DEFAULT_TEACHER_PASSWORD.equals(teacherPassword)) {
+            throw new IllegalStateException(
+                    "生产环境禁止使用默认老师密码：必须通过 PRESET_TEACHER_PASSWORD 环境变量注入强密码");
+        }
     }
 
     /** RBAC 基础数据：按 code 查重，缺失才插入（幂等） */
