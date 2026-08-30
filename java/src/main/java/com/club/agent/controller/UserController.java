@@ -1,6 +1,8 @@
 package com.club.agent.controller;
 
 import com.club.agent.annotation.Log;
+import com.club.agent.annotation.RateLimiter;
+import com.club.agent.annotation.RepeatSubmit;
 import com.club.agent.common.R;
 import com.club.agent.dto.UpdatePasswordDTO;
 import com.club.agent.dto.UpdateProfileDTO;
@@ -60,6 +62,8 @@ public class UserController {
 
     @PostMapping("/avatar")
     @Log(module = "个人信息", operation = "上传头像")
+    @RateLimiter(limit = 10, windowSeconds = 60)
+    @RepeatSubmit(intervalSeconds = 3)
     @Operation(summary = "上传头像（multipart/form-data，file 字段）")
     public R<Map<String, String>> updateAvatar(@RequestParam("file") MultipartFile file) {
         String url = userService.updateAvatar(file);

@@ -34,7 +34,8 @@ public class AuthController {
     private final AuthService authService;
 
     @GetMapping("/captcha")
-    @Operation(summary = "获取图形验证码")
+    @RateLimiter(limit = 30, windowSeconds = 60)
+    @Operation(summary = "获取验证码")
     public R<CaptchaVO> captcha() {
         return R.ok(authService.getCaptcha());
     }

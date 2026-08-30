@@ -24,6 +24,7 @@ import com.club.agent.mapper.FormSubmissionMapper;
 import com.club.agent.mapper.FormTemplateMapper;
 import com.club.agent.mapper.SysUserMapper;
 import com.club.agent.service.ActivityFileAiService;
+import com.club.agent.service.ActivityOwnership;
 import com.club.agent.vo.ActivityContextVO;
 import com.club.agent.vo.FileDraftMessageVO;
 import lombok.RequiredArgsConstructor;
@@ -72,6 +73,7 @@ public class ActivityFileAiServiceImpl implements ActivityFileAiService {
     private final FormAnswerMapper formAnswerMapper;
     private final ActivityDiscussionSummaryMapper discussionSummaryMapper;
     private final SysUserMapper sysUserMapper;
+    private final ActivityOwnership ownership;
     private final RestClient.Builder restClientBuilder;
 
     @Value("${ai.draft.base-url:http://127.0.0.1:8094}")

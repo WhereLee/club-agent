@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 全局异常处理器：所有异常在此收敛为 R 响应，Controller 层不出现 try-catch。
@@ -87,6 +88,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public R<Void> handleMaxUpload(MaxUploadSizeExceededException e) {
         return R.fail(ResultCode.BIZ_FILE_TOO_LARGE);
+    }
+
+    /** 静态资源不存在（头像被删/路径错）：404 而非 500（否则会被 Exception 兜底误报系统异常） */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public R<Void> handleNoResource(NoResourceFoundException e) {
+        return R.fail(ResultCode.NOT_FOUND);
     }
 
     /** 兜底：未知异常不泄露堆栈 */

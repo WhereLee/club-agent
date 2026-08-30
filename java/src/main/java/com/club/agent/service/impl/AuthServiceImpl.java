@@ -8,12 +8,11 @@ import com.club.agent.config.CaptchaProperties;
 import com.club.agent.config.LoginProperties;
 import com.club.agent.dto.LoginDTO;
 import com.club.agent.dto.RegisterDTO;
-import com.club.agent.entity.LoginLog;
 import com.club.agent.entity.SysUser;
 import com.club.agent.exception.BizException;
-import com.club.agent.mapper.LoginLogMapper;
 import com.club.agent.mapper.SysUserMapper;
 import com.club.agent.service.AuthService;
+import com.club.agent.service.LoginLogService;
 import com.club.agent.util.JwtUtils;
 import com.club.agent.util.RedisKeys;
 import com.club.agent.vo.CaptchaVO;
@@ -24,7 +23,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,12 +50,12 @@ public class AuthServiceImpl implements AuthService {
             "return c";
 
     private final SysUserMapper userMapper;
-    private final LoginLogMapper loginLogMapper;
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
     private final CaptchaProperties captchaProperties;
     private final LoginProperties loginProperties;
     private final JwtUtils jwtUtils;
+    private final LoginLogService loginLogService;
 
     @Override
     public CaptchaVO getCaptcha() {
@@ -109,7 +107,7 @@ public class AuthServiceImpl implements AuthService {
             String expect = redisTemplate.opsForValue().get(captchaKey);
             redisTemplate.delete(captchaKey);
             if (expect == null || !expect.equalsIgnoreCase(dto.getCaptchaCode())) {
-                saveLoginLog(dto.getUsername(), ip, 0, "验证码错误或已过期");
+                loginLogService.saveAsync(dto.getUsername(), ip, 0, "验证码错误或已过期");
                 throw new BizException(ResultCode.BIZ_CAPTCHA_ERROR);
             }
         }
@@ -118,7 +116,7 @@ public class AuthServiceImpl implements AuthService {
         String failKey = RedisKeys.LOGIN_FAIL + dto.getUsername();
         String failCount = redisTemplate.opsForValue().get(failKey);
         if (failCount != null && Integer.parseInt(failCount) >= loginProperties.getFailMaxCount()) {
-            saveLoginLog(dto.getUsername(), ip, 0, "账号已锁定");
+            loginLogService.saveAsync(dto.getUsername(), ip, 0, "账号已锁定");
             throw new BizException(ResultCode.BIZ_ACCOUNT_LOCKED);
         }
 
@@ -127,11 +125,11 @@ public class AuthServiceImpl implements AuthService {
                 new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, dto.getUsername()));
         if (user == null || !passwordEncoder.matches(dto.getPassword(), user.getPasswordHash())) {
             incrFailCount(failKey);
-            saveLoginLog(dto.getUsername(), ip, 0, "用户名或密码错误");
+            loginLogService.saveAsync(dto.getUsername(), ip, 0, "用户名或密码错误");
             throw new BizException(ResultCode.BIZ_USERNAME_OR_PASSWORD_ERROR);
         }
         if (user.getStatus() == null || user.getStatus() != 1) {
-            saveLoginLog(dto.getUsername(), ip, 0, "账号被禁用");
+            loginLogService.saveAsync(dto.getUsername(), ip, 0, "账号被禁用");
             throw new BizException(ResultCode.BIZ_USER_DISABLED);
         }
 
@@ -141,7 +139,7 @@ public class AuthServiceImpl implements AuthService {
         update.setId(user.getId());
         update.setLastLoginAt(LocalDateTime.now());
         userMapper.updateById(update);
-        saveLoginLog(user.getUsername(), ip, 1, "登录成功");
+        loginLogService.saveAsync(user.getUsername(), ip, 1, "登录成功");
 
         String token = jwtUtils.createToken(user.getId(), user.getUsername());
         return LoginVO.builder()
@@ -175,20 +173,5 @@ public class AuthServiceImpl implements AuthService {
                 new DefaultRedisScript<>(LUA_INCR_EXPIRE, Long.class),
                 List.of(failKey),
                 String.valueOf(loginProperties.getLockMinutes() * 60));
-    }
-
-    /** 登录日志异步落库（审计不阻塞登录响应） */
-    @Async("logExecutor")
-    public void saveLoginLog(String username, String ip, int status, String message) {
-        try {
-            LoginLog record = new LoginLog();
-            record.setUsername(username);
-            record.setIp(ip);
-            record.setStatus(status);
-            record.setMessage(message);
-            loginLogMapper.insert(record);
-        } catch (Exception e) {
-            log.error("登录日志落库失败: {}", e.getMessage());
-        }
     }
 }

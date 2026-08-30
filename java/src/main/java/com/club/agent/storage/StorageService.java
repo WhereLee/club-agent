@@ -16,4 +16,11 @@ public interface StorageService {
      * @return 可访问的 URL
      */
     String upload(MultipartFile file, String bizType);
+
+    /**
+     * 删除文件（尽力而为：失败仅告警，不影响主流程；对象不存在视为成功）。
+     *
+     * @param url upload 返回的 URL（本地 /uploads/... 相对路径 / COS 完整域名 URL）
+     */
+    void delete(String url);
 }

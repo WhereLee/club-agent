@@ -67,11 +67,16 @@ public class UserServiceImpl implements UserService {
     @Override
     public String updateAvatar(MultipartFile file) {
         SysUser user = requireCurrentUser();
+        String oldUrl = user.getAvatarUrl();
         String url = storageService.upload(file, "avatar");
         SysUser update = new SysUser();
         update.setId(user.getId());
         update.setAvatarUrl(url);
         userMapper.updateById(update);
+        // 旧头像删除（尽力而为：先上传新 + 落库再删旧，删除失败不影响主流程）
+        if (oldUrl != null && !oldUrl.isBlank() && !oldUrl.equals(url)) {
+            storageService.delete(oldUrl);
+        }
         return url;
     }
 

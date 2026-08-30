@@ -70,6 +70,36 @@ public class CosStorageServiceImpl extends AbstractStorageService {
         return buildUrl(key);
     }
 
+    @Override
+    public void delete(String url) {
+        String key = extractKey(url);
+        if (key == null) {
+            return;
+        }
+        try {
+            cosClient.deleteObject(cosProperties.getBucket(), key);
+        } catch (CosClientException e) {
+            log.warn("COS 删除失败: key={}, err={}", key, e.getMessage());
+        }
+    }
+
+    /** 从 URL 提取对象 key（自定义域名前缀 / COS 默认域名两种形态） */
+    private String extractKey(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        String domain = cosProperties.getDomain();
+        if (!blank(domain) && url.startsWith(domain + "/")) {
+            return url.substring(domain.length() + 1);
+        }
+        String bucketHost = cosProperties.getBucket() + ".cos." + cosProperties.getRegion() + ".myqcloud.com/";
+        int idx = url.indexOf(bucketHost);
+        if (idx >= 0) {
+            return url.substring(idx + bucketHost.length());
+        }
+        return null;
+    }
+
     private String buildUrl(String key) {
         if (!blank(cosProperties.getDomain())) {
             return cosProperties.getDomain() + "/" + key;
