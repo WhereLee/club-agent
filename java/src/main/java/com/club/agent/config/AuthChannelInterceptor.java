@@ -95,7 +95,13 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
             return null;
         }
         // 与 HTTP 过滤器同源：已登出（拉黑）的 token 拒绝
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(RedisKeys.TOKEN_BLACKLIST + claims.getId()))) {
+        try {
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(RedisKeys.TOKEN_BLACKLIST + claims.getId()))) {
+                return null;
+            }
+        } catch (Exception e) {
+            // 对齐 JwtAuthenticationFilter.inBlacklist（K29）：Redis 抖动时保守拒绝连接 + 留痕
+            log.warn("WS 黑名单检查失败（保守拒绝）: jti={}, err={}", claims.getId(), e.getMessage());
             return null;
         }
         return userId;
