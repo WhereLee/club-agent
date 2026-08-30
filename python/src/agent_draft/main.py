@@ -11,6 +11,7 @@ import logging
 from typing import Any
 
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from . import config
@@ -23,6 +24,18 @@ from .tools.java_client import set_request_context
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 app = FastAPI(title="agent-draft", version="0.1.0")
+
+
+@app.middleware("http")
+async def internal_secret_check(request: Request, call_next):
+    """S5：内部密钥校验——Java 携带 X-Internal-Secret 才放行；未配置 secret 时跳过（仅限本地开发）。"""
+    # 健康检查放行（Java 探活不携带内部密钥）
+    if request.url.path == "/health":
+        return await call_next(request)
+    secret = config.AI_DRAFT_INTERNAL_SECRET
+    if secret and request.headers.get("X-Internal-Secret") != secret:
+        return JSONResponse(status_code=401, content={"detail": "unauthorized"})
+    return await call_next(request)
 
 
 class ChatRequest(BaseModel):

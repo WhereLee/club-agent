@@ -38,6 +38,11 @@ DB_PASSWORD = _require("SPRING_DATASOURCE_PASSWORD")
 _db_url = _SPRING_URL.replace("jdbc:", "", 1)
 DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{_db_url.split('://', 1)[1]}"
 
+# ---------- S5：内部 secret（Java 调用本服务校验；未配置则跳过，仅限本地开发） ----------
+AI_DRAFT_INTERNAL_SECRET = os.getenv("AI_DRAFT_INTERNAL_SECRET", "").strip()
+if not AI_DRAFT_INTERNAL_SECRET:
+    print("WARN: AI_DRAFT_INTERNAL_SECRET 未配置，内部接口不校验 X-Internal-Secret（仅限本地开发，生产必须配置）")
+
 # ---------- 服务 ----------
 SERVICE_PORT = int(os.getenv("AGENT_DRAFT_PORT", "8094"))
 CHAT_MAX_STEPS = int(os.getenv("AGENT_CHAT_MAX_STEPS", "15"))  # ReAct 循环上限（防失控）

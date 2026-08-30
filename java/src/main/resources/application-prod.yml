@@ -25,3 +25,8 @@ springdoc:
     enabled: false
 knife4j:
   enable: false
+
+# S5：prod 覆盖为无默认值（缺失时 Java 侧 warn 不带头；部署收紧项，见部署手册）
+ai:
+  draft:
+    internal-secret: ${AI_DRAFT_INTERNAL_SECRET:}

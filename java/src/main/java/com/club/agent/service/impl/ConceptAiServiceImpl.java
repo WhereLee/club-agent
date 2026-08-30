@@ -9,6 +9,7 @@ import com.club.agent.entity.ConceptDraftSession;
 import com.club.agent.entity.ConceptSession;
 import com.club.agent.entity.ConceptTrace;
 import com.club.agent.exception.BizException;
+import com.club.agent.config.PythonClientFactory;
 import com.club.agent.mapper.ClubMapper;
 import com.club.agent.mapper.ConceptDraftSessionMapper;
 import com.club.agent.mapper.ConceptSessionMapper;
@@ -24,15 +25,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.RestClient;
 
-import java.time.Duration;
+
+
 import java.util.List;
 import java.util.Map;
 
@@ -61,31 +62,13 @@ public class ConceptAiServiceImpl implements ConceptAiService {
     private final MembershipMapper membershipMapper;
     private final SysUserMapper sysUserMapper;
     private final ConceptService conceptService;
-    private final RestClient.Builder restClientBuilder;
+    private final PythonClientFactory pythonClient;
 
     @Value("${ai.draft.enabled:true}")
     private boolean aiDraftEnabled;
 
-    @Value("${ai.draft.base-url:http://127.0.0.1:8094}")
-    private String aiBaseUrl;
-
-    @Value("${ai.draft.timeout-seconds:120}")
-    private int aiTimeoutSeconds;
-
     @Value("${ai.draft.checkpoint-ttl-days:30}")
     private int checkpointTtlDays;
-
-    private RestClient pythonClient;
-
-    private RestClient python() {
-        if (pythonClient == null) {
-            SimpleClientHttpRequestFactory rf = new SimpleClientHttpRequestFactory();
-            rf.setConnectTimeout(Duration.ofSeconds(5));
-            rf.setReadTimeout(Duration.ofSeconds(aiTimeoutSeconds));  // LLM 响应慢，读超时放宽
-            pythonClient = restClientBuilder.baseUrl(aiBaseUrl).requestFactory(rf).build();
-        }
-        return pythonClient;
-    }
 
     @Override
     public List<DraftMessageVO> chat(Long clubId, Long conceptId, Long userId, String message, String authHeader) {
@@ -222,7 +205,7 @@ public class ConceptAiServiceImpl implements ConceptAiService {
                             "plannedTime", concept.getPlannedTime() == null ? "" : concept.getPlannedTime(),
                             "plannedLocation", concept.getPlannedLocation() == null ? "" : concept.getPlannedLocation(),
                             "content", concept.getContent() == null ? "" : concept.getContent()));
-            Map<?, ?> resp = python().post().uri("/ai/brief")
+            Map<?, ?> resp = pythonClient.get().post().uri("/ai/brief")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve().body(Map.class);
@@ -300,7 +283,7 @@ public class ConceptAiServiceImpl implements ConceptAiService {
     @SuppressWarnings("unchecked")
     private PythonChatResult callPython(Long clubId, Long conceptId, String message, String authHeader) {
         try {
-            RestClient.RequestBodySpec spec = python().post()
+            RestClient.RequestBodySpec spec = pythonClient.get().post()
                     .uri("/chat")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of("club_id", String.valueOf(clubId), "concept_id", String.valueOf(conceptId), "message", message));

@@ -9,6 +9,7 @@ import com.club.agent.exception.BizException;
 import com.club.agent.mapper.ActivityMapper;
 import com.club.agent.mapper.ActivitySummaryMapper;
 import com.club.agent.mapper.ExperienceEntryMapper;
+import com.club.agent.config.PythonClientFactory;
 import com.club.agent.service.SummaryAggregateService;
 import com.club.agent.service.SummaryService;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
@@ -17,15 +18,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.RestClient;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -45,16 +42,8 @@ public class SummaryServiceImpl implements SummaryService {
     private final ActivitySummaryMapper summaryMapper;
     private final ExperienceEntryMapper experienceEntryMapper;
     private final ObjectMapper objectMapper;
-    private final RestClient.Builder restClientBuilder;
     private final SummaryAggregateService aggregateService;
-
-    @Value("${ai.draft.base-url:http://127.0.0.1:8094}")
-    private String aiBaseUrl;
-
-    @Value("${ai.draft.timeout-seconds:120}")
-    private int aiTimeoutSeconds;
-
-    private volatile RestClient pythonClient;
+    private final PythonClientFactory pythonClient;
 
     @Async("aiExecutor")
     @Override
@@ -95,7 +84,7 @@ public class SummaryServiceImpl implements SummaryService {
         // 调 Python 总结 Agent（子图）；慢调用放事务外，异常走 failed + 重试
         try {
             Map<String, Object> input = aggregateInput(clubId, activityId);
-            Map<String, Object> resp = python().post()
+            Map<String, Object> resp = pythonClient.get().post()
                     .uri("/agent/summarize")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of(
@@ -143,7 +132,7 @@ public class SummaryServiceImpl implements SummaryService {
             throw new BizException(ResultCode.BIZ_SUMMARY_NOT_GENERATED);
         }
         try {
-            Map<String, Object> resp = python().post()
+            Map<String, Object> resp = pythonClient.get().post()
                     .uri("/agent/summarize/resume")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of("activity_id", String.valueOf(activityId), "answers", answers))
@@ -259,17 +248,4 @@ public class SummaryServiceImpl implements SummaryService {
         }
     }
 
-    private RestClient python() {
-        if (pythonClient == null) {
-            synchronized (this) {
-                if (pythonClient == null) {
-                    SimpleClientHttpRequestFactory rf = new SimpleClientHttpRequestFactory();
-                    rf.setConnectTimeout(Duration.ofSeconds(5));
-                    rf.setReadTimeout(Duration.ofSeconds(aiTimeoutSeconds));
-                    pythonClient = restClientBuilder.baseUrl(aiBaseUrl).requestFactory(rf).build();
-                }
-            }
-        }
-        return pythonClient;
-    }
 }
