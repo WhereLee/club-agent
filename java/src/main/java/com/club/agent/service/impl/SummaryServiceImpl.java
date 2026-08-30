@@ -56,7 +56,7 @@ public class SummaryServiceImpl implements SummaryService {
 
     private volatile RestClient pythonClient;
 
-    @Async("logExecutor")
+    @Async("aiExecutor")
     @Override
     public void generate(Long clubId, Long activityId, Long userId) {
         Activity a = activityMapper.selectById(activityId);

@@ -36,8 +36,14 @@ public class SummaryScheduler {
             if (a == null) {
                 continue;
             }
-            log.info("总结失败定时重试: activity={}, retry={}", s.getActivityId(), s.getRetryCount());
-            summaryService.generate(a.getClubId(), s.getActivityId(), null);
+            try {
+                log.info("总结失败定时重试: activity={}, retry={}", s.getActivityId(), s.getRetryCount());
+                summaryService.generate(a.getClubId(), s.getActivityId(), null);
+            } catch (Exception e) {
+                // C3：aiExecutor 满拒等提交异常——单条失败不影响其余，留给下轮扫描
+                log.warn("总结重试提交失败（单条不影响其余）: activity={}, err={}",
+                        s.getActivityId(), e.getMessage());
+            }
         }
     }
 }

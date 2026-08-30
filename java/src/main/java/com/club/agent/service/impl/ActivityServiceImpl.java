@@ -34,6 +34,7 @@ import com.club.agent.vo.ActivityVO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -327,7 +328,29 @@ public class ActivityServiceImpl implements ActivityService {
         trace(activityId, system ? null : userId, ActivityTrace.ACTION_RECORD_CLOSE,
                 system ? "留痕提交截止，自动进入总结" : "留痕关闭，进入总结");
         // 进入总结中自动触发总结生成（@Async，不阻塞状态推进；失败定时重试 + 手动重生成兜底）
-        summaryService.generate(clubId, activityId, null);
+        try {
+            summaryService.generate(clubId, activityId, null);
+        } catch (TaskRejectedException e) {
+            // C3：aiExecutor 满拒绝——此时 generate 方法体未执行、summary 无行，调度扫不到，必须落 failed 行
+            log.warn("总结生成提交被拒（aiExecutor 满），落失败行待调度重试: activity={}", activityId);
+            upsertFailedSummary(activityId);
+        }
+    }
+
+    /** 总结生成被拒时的兜底：upsert 一条 failed 行（retryCount 不递增，不消耗重试名额） */
+    private void upsertFailedSummary(Long activityId) {
+        ActivitySummary s = summaryMapper.selectOne(new LambdaQueryWrapper<ActivitySummary>()
+                .eq(ActivitySummary::getActivityId, activityId));
+        if (s == null) {
+            s = new ActivitySummary();
+            s.setId(IdWorker.getId());
+            s.setActivityId(activityId);
+            s.setRetryCount(0);
+            summaryMapper.insert(s);
+        }
+        s.setStatus(ActivitySummary.STATUS_FAILED);
+        s.setUpdatedAt(LocalDateTime.now());
+        summaryMapper.updateById(s);
     }
 
     @Override

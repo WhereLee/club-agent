@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.club.agent.common.ResultCode;
 import com.club.agent.entity.Activity;
 import com.club.agent.entity.ActivityDiscussionSummary;
+import com.club.agent.entity.ActivitySummary;
 import com.club.agent.entity.ActivityTrace;
 import com.club.agent.entity.ChatMessage;
 import com.club.agent.entity.FormField;
@@ -36,6 +37,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -44,6 +46,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -331,6 +334,46 @@ class ActivityServiceImplTest {
         verify(activityTraceMapper).insert(cap.capture());
         assertThat(cap.getValue().getOperatorId()).isNull();
         assertThat(cap.getValue().getOperatorName()).isEqualTo("系统");
+    }
+
+    @Test
+    @DisplayName("closeRecords 生成提交被拒（C3）：状态推进与 trace 不中断，落 failed 行待调度重试")
+    void closeRecords_generateRejected_upsertFailedRow() {
+        mockTraceOk();
+        doThrow(new TaskRejectedException("aiExecutor 已满"))
+                .when(summaryService).generate(CLUB, ACT, null);
+        when(summaryMapper.selectOne(any())).thenReturn(null);
+
+        activityService.closeRecords(CLUB, ACT, null, true);
+
+        // 状态推进已生效（无异常抛出）+ trace 已记录
+        verify(activityTraceMapper).insert(any(ActivityTrace.class));
+        // 被拒时 generate 方法体未执行、无 summary 行 → 必须 insert failed 行
+        ArgumentCaptor<ActivitySummary> cap = ArgumentCaptor.forClass(ActivitySummary.class);
+        verify(summaryMapper).insert(cap.capture());
+        assertThat(cap.getValue().getStatus()).isEqualTo(ActivitySummary.STATUS_FAILED);
+        assertThat(cap.getValue().getActivityId()).isEqualTo(ACT);
+    }
+
+    @Test
+    @DisplayName("closeRecords 生成提交被拒（C3）：已存在 summary 行 → update 置 failed（不消耗重试名额）")
+    void closeRecords_generateRejected_existingRowUpdated() {
+        mockTraceOk();
+        doThrow(new TaskRejectedException("aiExecutor 已满"))
+                .when(summaryService).generate(CLUB, ACT, null);
+        ActivitySummary exist = new ActivitySummary();
+        exist.setId(1L);
+        exist.setActivityId(ACT);
+        exist.setRetryCount(2);
+        when(summaryMapper.selectOne(any())).thenReturn(exist);
+
+        activityService.closeRecords(CLUB, ACT, null, true);
+
+        ArgumentCaptor<ActivitySummary> cap = ArgumentCaptor.forClass(ActivitySummary.class);
+        verify(summaryMapper).updateById(cap.capture());
+        assertThat(cap.getValue().getStatus()).isEqualTo(ActivitySummary.STATUS_FAILED);
+        // 被拒不算执行失败，不递增 retryCount（保留重试名额）
+        assertThat(cap.getValue().getRetryCount()).isEqualTo(2);
     }
 
     // ---- cancel（任意非终态 → 10） ----
