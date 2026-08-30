@@ -22,12 +22,16 @@ async function load() {
 }
 
 async function onResign(club) {
+  const mgmt = isManagement(club)
+  const tip = mgmt
+    ? `确定从「${club.clubName}」离职吗？职务将空出，任职记录保留为第X任。`
+    : `确定退出「${club.clubName}」吗？`
   try {
-    await ElMessageBox.confirm(`确定从「${club.clubName}」离职吗？职务将空出。`, '离职确认', { type: 'warning' })
+    await ElMessageBox.confirm(tip, mgmt ? '离职确认' : '退出确认', { type: 'warning' })
   } catch (e) { return }
   try {
     await resignClub(club.clubId)
-    ElMessage.success('已离职')
+    ElMessage.success(mgmt ? '已离职' : '已退出社团')
     load()
   } catch (e) { /* 拦截器已提示 */ }
 }
@@ -55,6 +59,7 @@ onMounted(load)
             </div>
             <div class="club-foot">
               <el-button v-if="isManagement(c)" size="small" type="danger" plain @click.stop="onResign(c)">离职</el-button>
+              <el-button v-else-if="c.status === 1 && c.roleCode !== 'teacher'" size="small" type="danger" plain @click.stop="onResign(c)">退出</el-button>
             </div>
           </el-card>
         </el-col>

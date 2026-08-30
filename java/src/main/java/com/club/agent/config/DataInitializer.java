@@ -63,17 +63,18 @@ public class DataInitializer implements ApplicationRunner {
         put("club:member:appoint", new Object[]{"任命管理层", "ACTION", 4});
         put("activity:manage", new Object[]{"活动管理", "ACTION", 5});
         put("log:view", new Object[]{"查看操作日志", "ACTION", 6});
+        put("club:member", new Object[]{"查看社团活动", "ACTION", 7});
     }};
 
     /** 角色-权限映射：roleCode -> permissionCode 列表 */
     private static final Map<String, List<String>> ROLE_PERMISSIONS = new LinkedHashMap<>() {{
         put("teacher", List.of(
                 "club:create", "club:update", "club:member:approve",
-                "club:member:appoint", "activity:manage", "log:view"));
+                "club:member:appoint", "activity:manage", "log:view", "club:member"));
         put("president", List.of(
-                "club:update", "club:member:approve", "activity:manage", "log:view"));
-        put("vice_president", List.of("club:member:approve", "activity:manage"));
-        put("member", List.of());
+                "club:update", "club:member:approve", "activity:manage", "log:view", "club:member"));
+        put("vice_president", List.of("club:member:approve", "activity:manage", "club:member"));
+        put("member", List.of("club:member"));
     }};
 
     @Override
@@ -154,7 +155,8 @@ public class DataInitializer implements ApplicationRunner {
             teacher.setUsername(u);
             teacher.setPasswordHash(passwordEncoder.encode(teacherPassword));
             teacher.setEmail(u + "@" + emailDomain);
-            teacher.setNickname("指导老师-" + u);
+            // 昵称必须符合 @Nickname 规则（中文/英文/数字，无符号）——username 本身是字母数字，直接拼接
+            teacher.setNickname("指导老师" + u);
             teacher.setIsTeacher(true);
             teacher.setStatus(1);
             userMapper.insert(teacher);

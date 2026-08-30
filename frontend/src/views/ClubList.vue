@@ -66,8 +66,6 @@ async function onApply(club) {
   }
 }
 
-import { applyClub } from '../api/club'
-
 onMounted(load)
 </script>
 

@@ -12,10 +12,12 @@ import com.club.agent.mapper.ClubMapper;
 import com.club.agent.mapper.MembershipMapper;
 import com.club.agent.mapper.RbacRoleMapper;
 import com.club.agent.mapper.SysUserMapper;
+import com.club.agent.service.ConceptService;
 import com.club.agent.service.MembershipService;
 import com.club.agent.util.RoleConstants;
 import com.club.agent.vo.MemberVO;
 import com.club.agent.vo.MyClubVO;
+import com.club.agent.vo.TodoVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,7 @@ public class MembershipServiceImpl implements MembershipService {
     private final MembershipMapper membershipMapper;
     private final RbacRoleMapper roleMapper;
     private final SysUserMapper userMapper;
+    private final ConceptService conceptService;
 
     @Override
     public void apply(Long clubId, Long userId) {
@@ -158,8 +161,30 @@ public class MembershipServiceImpl implements MembershipService {
                 throw new BizException(ResultCode.BIZ_ALREADY_MANAGEMENT);
             }
         }
+        // 任职届数：目标职务计数器 +1（副社长升社长 → 社长届数+1，届数标记随新职务）
+        Club club = clubMapper.selectById(clubId);
+        if (club == null) {
+            throw new BizException(ResultCode.NOT_FOUND.getCode(), "社团不存在");
+        }
+        Long termNo;
+        if (RoleConstants.PRESIDENT.equals(role)) {
+            club.setPresidentTermNo(safeTermNo(club.getPresidentTermNo()) + 1);
+            termNo = club.getPresidentTermNo();
+        } else {
+            club.setVicePresidentTermNo(safeTermNo(club.getVicePresidentTermNo()) + 1);
+            termNo = club.getVicePresidentTermNo();
+        }
+        clubMapper.updateById(club);
+
         membership.setRoleId(targetRole.getId());
+        membership.setTermNo(termNo);
+        membership.setFormerRoleCode(null); // 当前在职，清空前任标记
         membershipMapper.updateById(membership);
+    }
+
+    /** 届数计数器容错：存量数据可能为 null，按 0 处理 */
+    private long safeTermNo(Long termNo) {
+        return termNo == null ? 0L : termNo;
     }
 
     @Override
@@ -173,10 +198,15 @@ public class MembershipServiceImpl implements MembershipService {
         }
         RbacRole currentRole = roleMapper.selectById(membership.getRoleId());
         if (currentRole == null || !Boolean.TRUE.equals(currentRole.getIsManagement())) {
-            throw new BizException(ResultCode.BIZ_NOT_MANAGEMENT);
+            // 普通成员退出：直接删除成员关系
+            membershipMapper.deleteById(membership.getId());
+            return;
         }
-        // 离职：角色降为社员，位置空出；人留在社团
+        // 管理层离职：角色降为社员，term_no/former_role_code 保留（第X任标记），位置空出；人留在社团
+        // 联动：发起人离职 → 其在该社团的活跃概念自动作废（resign_void 留痕 + 通知现任管理层），释放唯一名额
+        conceptService.voidActiveOnResign(clubId, userId);
         membership.setRoleId(requireRole(RoleConstants.MEMBER).getId());
+        membership.setFormerRoleCode(currentRole.getCode());
         membershipMapper.updateById(membership);
     }
 
@@ -188,6 +218,21 @@ public class MembershipServiceImpl implements MembershipService {
     @Override
     public List<MyClubVO> myClubs(Long userId) {
         return membershipMapper.selectMyClubs(userId);
+    }
+
+    @Override
+    public List<MyClubVO> managedClubs(Long teacherId) {
+        return membershipMapper.selectManagedClubs(teacherId);
+    }
+
+    @Override
+    public List<TodoVO> pendingTodosByTeacher(Long teacherId) {
+        return membershipMapper.selectPendingTodosByTeacher(teacherId);
+    }
+
+    @Override
+    public List<TodoVO> pendingTodosByManagement(Long userId) {
+        return membershipMapper.selectPendingTodosByManagement(userId);
     }
 
     private Club requireClub(Long clubId) {

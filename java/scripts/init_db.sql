@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS club (
     name        VARCHAR(100) NOT NULL,
     description VARCHAR(500),
     teacher_id  BIGINT       NOT NULL,                  -- 指导老师（创建者）
+    president_term_no     BIGINT NOT NULL DEFAULT 0,    -- 社长届数计数器（任命时+1）
+    vice_president_term_no BIGINT NOT NULL DEFAULT 0,   -- 副社长届数计数器（任命时+1）
     created_at  TIMESTAMP  NOT NULL DEFAULT now(),
     updated_at  TIMESTAMP  NOT NULL DEFAULT now(),
     deleted     SMALLINT     NOT NULL DEFAULT 0
@@ -62,6 +64,8 @@ CREATE TABLE IF NOT EXISTS membership (
     applied_at TIMESTAMP NOT NULL DEFAULT now(),
     approved_at TIMESTAMP,
     approved_by BIGINT,                                 -- 审批人（老师/管理层）
+    term_no     BIGINT,                                 -- 任期届数（管理层任命时写入；离职保留作为第X任标记）
+    former_role_code VARCHAR(20),                       -- 前任管理层职务（离职时写入，用于第X任展示）
     created_at TIMESTAMP NOT NULL DEFAULT now(),
     updated_at TIMESTAMP NOT NULL DEFAULT now()
 );
@@ -222,3 +226,100 @@ COMMENT ON TABLE login_log IS '登录日志表（防爆破审计）';
 
 CREATE INDEX ix_login_log_username ON login_log (username, created_at DESC);
 CREATE INDEX ix_login_log_created  ON login_log (created_at DESC);
+
+-- ---------- 概念表（概念诞生阶段：管理层酝酿 → 老师批复后转活动） ----------
+CREATE TABLE IF NOT EXISTS concept_session (
+    id               BIGINT       PRIMARY KEY,
+    club_id          BIGINT      NOT NULL,
+    user_id          BIGINT      NOT NULL,                 -- 发起者（该社团管理层）
+    status           SMALLINT    NOT NULL DEFAULT 1,       -- 1=起草中 2=已提交待审 3=复议中 4=待老师批复 5=已通过 6=已作废
+    reason           TEXT,                                 -- 发起理由（必填；LangGraph AI 起草会话的输入入口）
+    planned_time     VARCHAR(100),                         -- 预计时间
+    planned_location VARCHAR(200),                         -- 预计地点
+    content          TEXT,                                 -- 活动简述
+    submitted_at     TIMESTAMP,                            -- 提交时间（status>=2 时写入）
+    deadline         TIMESTAMP,                            -- 当前阶段截止（提交=提交+36h；进入待老师批复=进入+36h）
+    version          BIGINT      NOT NULL DEFAULT 0,       -- 乐观锁（草稿并发编辑覆盖防护）
+    created_at       TIMESTAMP NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMP NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE  concept_session IS '概念（活动的酝酿阶段，仅管理层可见/参与；老师批复后转活动）';
+COMMENT ON COLUMN concept_session.reason IS '发起理由（必填；LangGraph AI 起草会话的输入入口）';
+COMMENT ON COLUMN concept_session.deadline IS '当前阶段截止时间（提交=提交+36h；进入待老师批复=进入+36h）';
+
+CREATE INDEX ix_concept_session_club ON concept_session (club_id, created_at DESC);
+CREATE INDEX ix_concept_session_user ON concept_session (user_id, created_at DESC);
+
+-- 唯一性：一个社团同一时间最多一个活跃概念（活跃集 1-4；通过/作废后释放）
+CREATE UNIQUE INDEX uk_concept_active ON concept_session (club_id) WHERE status IN (1, 2, 3, 4);
+
+-- ---------- 概念投票表（状态机数据：判断两票/复议轮） ----------
+CREATE TABLE IF NOT EXISTS concept_vote (
+    id         BIGINT       PRIMARY KEY,
+    concept_id BIGINT      NOT NULL,
+    round      SMALLINT    NOT NULL,                -- 1=首次投票 2=复议
+    voter_id   BIGINT      NOT NULL,
+    result     SMALLINT    NOT NULL,                -- 1=赞成 0=拒绝
+    comment    VARCHAR(500) NOT NULL,               -- 必填理由（留痕主体）
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    UNIQUE (concept_id, round, voter_id)
+);
+
+COMMENT ON TABLE  concept_vote IS '概念投票（发起人不投票；复议=两人重投）';
+
+CREATE INDEX ix_concept_vote ON concept_vote (concept_id, round);
+
+-- ---------- 概念流水表（全量时间线：谁/何时/什么，审计与老师视图） ----------
+CREATE TABLE IF NOT EXISTS concept_trace (
+    id            BIGINT       PRIMARY KEY,
+    concept_id    BIGINT      NOT NULL,
+    operator_id   BIGINT,                              -- 可空：系统动作（超时扫描）无操作人
+    operator_name VARCHAR(50) NOT NULL,
+    action        VARCHAR(30) NOT NULL,             -- create/save/submit/vote/revote/withdraw/abandon/teacher_approve/teacher_reject/timeout_void/resign_void
+    detail        VARCHAR(500),                     -- 理由/备注
+    created_at    TIMESTAMP NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE  concept_trace IS '概念全量流水（谁在什么时候做了什么，时间线展示与审计）';
+
+CREATE INDEX ix_concept_trace ON concept_trace (concept_id, created_at ASC);
+
+-- 超时扫描查询索引（status IN (2,3,4) AND deadline < now()）
+CREATE INDEX IF NOT EXISTS ix_concept_status_deadline
+    ON concept_session (status, deadline) WHERE status IN (2, 3, 4);
+
+-- ---------- 站内消息表（概念作废/通过通知） ----------
+CREATE TABLE IF NOT EXISTS message (
+    id             BIGINT       PRIMARY KEY,
+    recipient_id   BIGINT      NOT NULL,
+    type           VARCHAR(30) NOT NULL,             -- concept_void / concept_approved
+    title          VARCHAR(100) NOT NULL,
+    content        VARCHAR(500),
+    ref_concept_id BIGINT,                           -- 关联概念（雪花 id）
+    read_flag      SMALLINT NOT NULL DEFAULT 0,      -- 0=未读 1=已读
+    created_at     TIMESTAMP NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE  message IS '站内消息（概念作废/通过通知；前端以待办聚合展示）';
+
+CREATE INDEX ix_message_recipient ON message (recipient_id, read_flag, created_at DESC);
+
+-- ---------- 概念起草会话（AI 对话 Agent 消息留痕；事实源，checkpoint 只是运行态缓存） ----------
+CREATE TABLE IF NOT EXISTS concept_draft_session (
+    id            BIGINT       PRIMARY KEY,
+    concept_id    BIGINT       NOT NULL,
+    user_id       BIGINT       NOT NULL,             -- 发起人
+    role          VARCHAR(10)  NOT NULL,             -- user / assistant / tool
+    content       TEXT,
+    tool_name     VARCHAR(50),                       -- D2 起工具记录
+    tool_args     JSONB,
+    form_snapshot JSONB,
+    tokens_in     INT,
+    tokens_out    INT,
+    created_at    TIMESTAMP    NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE  concept_draft_session IS '概念起草会话：AI 对话消息留痕（人/AI/工具三方），审计与续聊的事实源';
+
+CREATE INDEX ix_draft_session_concept ON concept_draft_session (concept_id, created_at);

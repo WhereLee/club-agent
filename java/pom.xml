@@ -24,7 +24,21 @@
         <knife4j.version>4.5.0</knife4j.version>
         <cos-api.version>5.6.227</cos-api.version>
         <hutool.version>5.8.38</hutool.version>
+        <spring-ai.version>1.0.0</spring-ai.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring AI：Java 端单次线性 AI（版本由 BOM 统一；本地仓库已有 1.0.0 全套） -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- Web / 校验 / AOP -->
@@ -126,6 +140,22 @@
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
+        </dependency>
+        <!-- WebSocket：讨论群（块 C）STOMP 实时通信 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
+        <!-- Java 端单次线性 AI（块 H）：Spring AI + OpenAI 兼容协议直连 MiMo；
+             与 Python 侧 LangGraph 流转型 Agent 形成双端 AI 范式（带流转 vs 单次线性） -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-client-chat</artifactId>
         </dependency>
     </dependencies>
 

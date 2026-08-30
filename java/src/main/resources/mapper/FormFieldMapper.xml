@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.club.agent.mapper.FormFieldMapper">
+
+    <!-- options JSONB 列：显式 CAST（K23 先例：MP 内置 insert 不带 CAST 会被 PG 拒绝；null 时 CAST(NULL) 合法） -->
+    <insert id="insertWithOptions" parameterType="com.club.agent.entity.FormField">
+        INSERT INTO form_field (id, template_id, label, field_type, required, options, sort_order, system_flag, created_at)
+        VALUES (#{id}, #{templateId}, #{label}, #{fieldType}, #{required},
+                CAST(#{options} AS jsonb), #{sortOrder}, #{systemFlag}, now())
+    </insert>
+
+</mapper>

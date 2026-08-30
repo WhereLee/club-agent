@@ -64,6 +64,38 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
+    public ClubVO update(Long clubId, ClubCreateDTO dto) {
+        Club club = clubMapper.selectById(clubId);
+        if (club == null) {
+            throw new BizException(ResultCode.NOT_FOUND.getCode(), "社团不存在");
+        }
+        // 名称唯一（排除自身）
+        Long nameCount = clubMapper.selectCount(
+                new LambdaQueryWrapper<Club>()
+                        .eq(Club::getName, dto.getName())
+                        .ne(Club::getId, clubId));
+        if (nameCount != null && nameCount > 0) {
+            throw new BizException(ResultCode.BIZ_CLUB_NAME_EXISTS);
+        }
+        club.setName(dto.getName());
+        club.setDescription(dto.getDescription());
+        clubMapper.updateById(club);
+
+        ClubVO vo = new ClubVO();
+        vo.setId(club.getId());
+        vo.setName(club.getName());
+        vo.setDescription(club.getDescription());
+        SysUser teacher = userMapper.selectById(club.getTeacherId());
+        vo.setTeacherName(teacher == null ? "" : teacher.getNickname());
+        vo.setMemberCount(membershipMapper.selectCount(
+                new LambdaQueryWrapper<Membership>()
+                        .eq(Membership::getClubId, clubId)
+                        .eq(Membership::getStatus, Membership.STATUS_APPROVED)));
+        vo.setCreatedAt(club.getCreatedAt());
+        return vo;
+    }
+
+    @Override
     public IPage<ClubVO> list(long page, long size) {
         return clubMapper.selectClubPage(new Page<>(page, size));
     }

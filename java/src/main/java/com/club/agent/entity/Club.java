@@ -27,6 +27,12 @@ public class Club {
     /** 指导老师（创建者） */
     private Long teacherId;
 
+    /** 社长届数计数器（任命时+1） */
+    private Long presidentTermNo;
+
+    /** 副社长届数计数器（任命时+1） */
+    private Long vicePresidentTermNo;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

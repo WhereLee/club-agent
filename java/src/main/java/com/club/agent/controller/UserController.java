@@ -67,8 +67,12 @@ public class UserController {
     }
 
     @GetMapping("/clubs")
-    @Operation(summary = "我的社团（状态/角色）")
+    @Operation(summary = "我的社团（状态/角色）；老师返回其管理的社团")
     public R<List<MyClubVO>> myClubs() {
-        return R.ok(membershipService.myClubs(SecurityUtils.getUserId()));
+        Long userId = SecurityUtils.getUserId();
+        if (Boolean.TRUE.equals(userService.getCurrentUser().getIsTeacher())) {
+            return R.ok(membershipService.managedClubs(userId));
+        }
+        return R.ok(membershipService.myClubs(userId));
     }
 }

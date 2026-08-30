@@ -3,6 +3,7 @@ import { reactive, ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { updateAvatar, updatePassword, updateProfile } from '../api/user'
 import { useUserStore } from '../stores/user'
+import { isNicknameValid, NICKNAME_MESSAGE } from '../utils/nickname'
 
 const userStore = useUserStore()
 
@@ -35,8 +36,15 @@ function fillProfile() {
   profileForm.email = userStore.userInfo?.email || ''
 }
 
+// 后端 LocalDateTime 序列化为 ISO 无时区格式（2026-08-27T03:52:21.001105），转为可读展示
+function formatTime(t) {
+  if (!t) return '-'
+  return t.replace('T', ' ').slice(0, 19)
+}
+
 async function onAvatarChange(uploadFile) {
-  const file = uploadFile.raw
+  // Element Plus 2.7 的 http-request options.file 即为原始 File（无 .raw 包装层）
+  const file = uploadFile.file
   try {
     const res = await updateAvatar(file)
     userStore.userInfo.avatarUrl = res.data.avatarUrl
@@ -113,20 +121,26 @@ onMounted(async () => {
           </div>
         </template>
         <el-form ref="profileRef" :model="profileForm" label-width="80px" :rules="{
-          nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
+          nickname: [
+            { required: true, message: '请输入昵称', trigger: 'blur' },
+            {
+              validator: (rule, value, callback) => (isNicknameValid(value) ? callback() : callback(new Error(NICKNAME_MESSAGE))),
+              trigger: 'blur'
+            }
+          ],
           email: [{ required: true, message: '请输入邮箱', trigger: 'blur' }, { type: 'email', message: '邮箱格式不正确', trigger: 'blur' }]
         }">
           <el-form-item label="用户名">
             <el-input :model-value="userStore.userInfo?.username" disabled />
           </el-form-item>
           <el-form-item label="昵称" prop="nickname">
-            <el-input v-model="profileForm.nickname" maxlength="50" />
+            <el-input v-model="profileForm.nickname" maxlength="24" />
           </el-form-item>
           <el-form-item label="邮箱" prop="email">
             <el-input v-model="profileForm.email" />
           </el-form-item>
           <el-form-item label="注册时间">
-            <span class="muted">{{ userStore.userInfo?.createdAt }}</span>
+            <span class="muted">{{ formatTime(userStore.userInfo?.createdAt) }}</span>
           </el-form-item>
           <el-button type="primary" :loading="saving" @click="onSaveProfile">保存修改</el-button>
         </el-form>

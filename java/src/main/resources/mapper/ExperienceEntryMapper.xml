@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.club.agent.mapper.ExperienceEntryMapper">
+
+    <!-- Agent 检索：本社团（含通用）+ 该发起人 thinking_pattern；q 可空（空=按时间倒序取最近） -->
+    <select id="selectForAgent" resultType="com.club.agent.entity.ExperienceEntry">
+        SELECT id, club_id, category, title, content, owner_id, source_concept_id,
+               source_user_id, status, created_at
+        FROM experience_entry
+        WHERE status = 1
+          AND (club_id = #{clubId} OR club_id IS NULL)
+          AND (
+              (category = 'thinking_pattern' AND owner_id = #{userId})
+              OR category != 'thinking_pattern'
+          )
+          AND (#{q} IS NULL OR #{q} = ''
+               OR title ILIKE '%' || #{q} || '%' OR content ILIKE '%' || #{q} || '%')
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- B1：数据水位——本社团（含通用）非思考角度的经验总数（不随关键词变化，衡量经验丰富度） -->
+    <select id="countForAgent" resultType="int">
+        SELECT COUNT(*)
+        FROM experience_entry
+        WHERE status = 1
+          AND (club_id = #{clubId} OR club_id IS NULL)
+          AND category != 'thinking_pattern'
+    </select>
+
+</mapper>

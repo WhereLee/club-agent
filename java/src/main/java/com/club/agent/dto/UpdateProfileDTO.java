@@ -1,5 +1,6 @@
 package com.club.agent.dto;
 
+import com.club.agent.annotation.Nickname;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -12,7 +13,7 @@ import lombok.Data;
 public class UpdateProfileDTO {
 
     @NotBlank(message = "昵称不能为空")
-    @Size(max = 50, message = "昵称过长")
+    @Nickname
     private String nickname;
 
     @NotBlank(message = "邮箱不能为空")

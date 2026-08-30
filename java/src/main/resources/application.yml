@@ -45,6 +45,7 @@ jwt:
   expire-minutes: ${JWT_EXPIRE_MINUTES:1440}   # 24h
 
 captcha:
+  enabled: ${CAPTCHA_ENABLED:true}                    # 开关：false 时登录跳过验证码（开发/自动化测试）
   expire-minutes: 5                            # 验证码有效期
 
 login:
@@ -65,6 +66,23 @@ upload:
   local-dir: ${LOCAL_UPLOAD_DIR:./uploads}     # local 模式存储目录
   max-size: ${UPLOAD_MAX_SIZE:5242880}         # 5MB
   allowed-types: jpg,jpeg,png,gif,webp
+
+# ---------- 概念起草 AI 助手（Python agent-draft 服务，LangGraph 对话 Agent） ----------
+ai:
+  draft:
+    enabled: ${AI_DRAFT_ENABLED:true}                 # 总开关：false 时 AI 接口返回 404
+    base-url: ${AI_DRAFT_BASE_URL:http://127.0.0.1:8094}
+    timeout-seconds: ${AI_DRAFT_TIMEOUT_SECONDS:120}   # 调 Python 超时：MiMo 一轮 ReAct 可能 40-60s，必须放宽
+    skill-dir: ${SKILL_DIR:../skills}                   # D4：SKILL.md 落盘目录（相对 java 运行目录，部署用环境变量覆盖）
+    checkpoint-ttl-days: ${CHECKPOINT_TTL_DAYS:30}      # A1：终态概念（通过/作废）N 天后清理 checkpoint 三表，防 PostgresSaver 膨胀
+
+  # Java 端单次线性 AI（块 H）：Spring AI 直连 Xiaomi MiMo（OpenAI 兼容协议），
+  # 与 Python 侧流转型 LangGraph Agent 形成双端范式；key 走 .env 注入
+  llm:
+    base-url: ${LLM_BASE_URL:https://api.xiaomimimo.com/v1}
+    api-key: ${LLM_API_KEY:}
+    model: ${LLM_MODEL:mimo-v2.5}
+    timeout-seconds: ${LLM_TIMEOUT_SECONDS:60}
 
 # 预设老师账号（模拟旧系统存量数据；生产部署用环境变量覆盖强密码）
 preset:

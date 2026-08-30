@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.club.agent.mapper.ActivityDutyMapper">
+
+    <!-- assigned_members JSONB 列：显式 CAST（K23 先例；null 时 CAST(NULL) 合法） -->
+    <insert id="insertWithMembers" parameterType="com.club.agent.entity.ActivityDuty">
+        INSERT INTO activity_duty (id, activity_id, description, assigned_members, sort_order, created_at)
+        VALUES (#{id}, #{activityId}, #{description}, CAST(#{assignedMembers} AS jsonb), #{sortOrder}, now())
+    </insert>
+
+</mapper>

@@ -2,6 +2,7 @@ import request from './request'
 
 // 社团与成员接口
 export const createClub = (data) => request.post('/clubs', data)
+export const updateClub = (clubId, data) => request.put(`/clubs/${clubId}`, data)
 export const getClubs = (page = 1, size = 10) => request.get('/clubs', { params: { page, size } })
 export const getClubDetail = (clubId) => request.get(`/clubs/${clubId}`)
 export const applyClub = (clubId) => request.post(`/clubs/${clubId}/apply`)

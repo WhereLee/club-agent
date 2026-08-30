@@ -1,6 +1,7 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { isNicknameValid, NICKNAME_MESSAGE } from '../utils/nickname'
 import { ElMessage } from 'element-plus'
 import { register } from '../api/auth'
 
@@ -31,7 +32,13 @@ const rules = {
     { required: true, message: '请输入邮箱', trigger: 'blur' },
     { type: 'email', message: '邮箱格式不正确', trigger: 'blur' }
   ],
-  nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }]
+  nickname: [
+    { required: true, message: '请输入昵称', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => (isNicknameValid(value) ? callback() : callback(new Error(NICKNAME_MESSAGE))),
+      trigger: 'blur'
+    }
+  ]
 }
 
 const formRef = ref()
@@ -74,7 +81,7 @@ async function onSubmit() {
           <el-input v-model="form.email" placeholder="请输入邮箱" />
         </el-form-item>
         <el-form-item label="昵称" prop="nickname">
-          <el-input v-model="form.nickname" placeholder="请输入昵称" maxlength="50" />
+          <el-input v-model="form.nickname" placeholder="2-12 个汉字或 4-24 位英文/数字" maxlength="24" />
         </el-form-item>
         <el-button type="primary" class="auth-btn" :loading="loading" @click="onSubmit">注 册</el-button>
         <div class="auth-footer">

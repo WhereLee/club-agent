@@ -37,7 +37,8 @@ public class SecurityConfig {
             "/doc.html", "/webjars/**", "/v3/api-docs/**",
             "/swagger-ui/**", "/swagger-resources/**", "/favicon.ico",
             "/auth/captcha", "/auth/register", "/auth/login",
-            "/uploads/**"
+            "/uploads/**",
+            "/ws/**"   // 块 C：STOMP 握手（应用层 ChannelInterceptor 鉴权，不走 HTTP 过滤器链）
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;

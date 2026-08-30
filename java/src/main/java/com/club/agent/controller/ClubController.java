@@ -24,6 +24,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -57,9 +58,19 @@ public class ClubController {
 
     @GetMapping
     @Operation(summary = "社团列表（分页）")
-    public R<IPage<ClubVO>> list(@RequestParam(defaultValue = "1") @Min(1) long page,
-                                 @RequestParam(defaultValue = "10") @Min(1) @Max(100) long size) {
+    public R<IPage<ClubVO>> list(@RequestParam(defaultValue = "1") @Min(value = 1, message = "页码不能小于 1") long page,
+                                 @RequestParam(defaultValue = "10") @Min(value = 1, message = "每页数量不能小于 1") @Max(value = 100, message = "每页最多 100 条") long size) {
         return R.ok(clubService.list(page, size));
+    }
+
+    @PutMapping("/{clubId}")
+    @Log(module = "社团", operation = "修改社团信息")
+    @RateLimiter(limit = 10, windowSeconds = 60)
+    @RepeatSubmit(intervalSeconds = 3)
+    @ClubPermission(clubId = "#clubId", permission = "club:update")
+    @Operation(summary = "修改社团信息（老师/社长）")
+    public R<ClubVO> update(@PathVariable Long clubId, @Valid @RequestBody ClubCreateDTO dto) {
+        return R.ok(clubService.update(clubId, dto));
     }
 
     @GetMapping("/{clubId}")
@@ -117,9 +128,9 @@ public class ClubController {
     }
 
     @PostMapping("/{clubId}/resign")
-    @Log(module = "社团", operation = "管理层离职")
+    @Log(module = "社团", operation = "离职/退出社团")
     @RepeatSubmit(intervalSeconds = 3)
-    @Operation(summary = "管理层离职（本人，角色降为社员）")
+    @Operation(summary = "离职/退出（管理层：降为社员保留第X任标记；普通成员：退出社团）")
     public R<Void> resign(@PathVariable Long clubId) {
         membershipService.resign(clubId, SecurityUtils.getUserId());
         return R.ok();

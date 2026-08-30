@@ -10,6 +10,8 @@
                u.nickname,
                r.code       AS roleCode,
                r.name       AS roleName,
+               m.term_no    AS termNo,
+               m.former_role_code AS formerRoleCode,
                m.status,
                m.applied_at AS appliedAt
         FROM membership m
@@ -27,13 +29,75 @@
                tu.nickname       AS teacherName,
                r.code            AS roleCode,
                r.name            AS roleName,
-               m.status
+               m.status,
+               m.term_no         AS termNo,
+               m.former_role_code AS formerRoleCode
         FROM membership m
         JOIN club c ON c.id = m.club_id AND c.deleted = 0
         JOIN sys_user tu ON tu.id = c.teacher_id AND tu.deleted = 0
         JOIN rbac_role r ON r.id = m.role_id
         WHERE m.user_id = #{userId}
         ORDER BY m.created_at DESC
+    </select>
+
+    <!-- 我管理的社团（老师视角：按 club.teacher_id 归属） -->
+    <select id="selectManagedClubs" resultType="com.club.agent.vo.MyClubVO">
+        SELECT c.id              AS clubId,
+               c.name            AS clubName,
+               c.description     AS clubDescription,
+               tu.nickname       AS teacherName,
+               'teacher'         AS roleCode,
+               '指导老师'         AS roleName,
+               1                 AS status
+        FROM club c
+        JOIN sys_user tu ON tu.id = c.teacher_id AND tu.deleted = 0
+        WHERE c.teacher_id = #{teacherId} AND c.deleted = 0
+        ORDER BY c.created_at DESC
+    </select>
+
+    <!-- 待办：老师管理的所有社团的待审批申请 -->
+    <select id="selectPendingTodosByTeacher" resultType="com.club.agent.vo.TodoVO">
+        SELECT c.id         AS clubId,
+               c.name       AS clubName,
+               m.id         AS membershipId,
+               u.username,
+               u.nickname,
+               m.applied_at AS appliedAt
+        FROM membership m
+        JOIN club c ON c.id = m.club_id AND c.deleted = 0
+        JOIN sys_user u ON u.id = m.user_id AND u.deleted = 0
+        WHERE m.status = 0 AND c.teacher_id = #{teacherId}
+        ORDER BY m.applied_at ASC
+    </select>
+
+    <!-- 待办：管理层所在社团的待审批申请 -->
+    <select id="selectPendingTodosByManagement" resultType="com.club.agent.vo.TodoVO">
+        SELECT c.id         AS clubId,
+               c.name       AS clubName,
+               m.id         AS membershipId,
+               u.username,
+               u.nickname,
+               m.applied_at AS appliedAt
+        FROM membership m
+        JOIN club c ON c.id = m.club_id AND c.deleted = 0
+        JOIN sys_user u ON u.id = m.user_id AND u.deleted = 0
+        WHERE m.status = 0
+          AND m.club_id IN (
+            SELECT me.club_id FROM membership me
+            JOIN rbac_role r ON r.id = me.role_id
+            WHERE me.user_id = #{userId} AND me.status = 1 AND r.is_management = TRUE
+          )
+        ORDER BY m.applied_at ASC
+    </select>
+
+    <!-- AI 起草工具：当前社团管理层名单（join 角色/用户昵称，按角色排序） -->
+    <select id="selectManagersByClub" resultType="com.club.agent.vo.ClubContextVO$ManagerVO">
+        SELECT m.user_id AS userId, su.nickname AS nickname, r.code AS roleCode
+        FROM membership m
+        JOIN rbac_role r ON r.id = m.role_id AND r.is_management = TRUE
+        JOIN sys_user su ON su.id = m.user_id
+        WHERE m.club_id = #{clubId} AND m.status = 1
+        ORDER BY r.sort ASC
     </select>
 
 </mapper>

@@ -2,6 +2,7 @@ package com.club.agent.exception;
 
 import com.club.agent.common.R;
 import com.club.agent.common.ResultCode;
+import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -32,17 +33,26 @@ public class GlobalExceptionHandler {
         return R.fail(e.getCode(), e.getMessage());
     }
 
-    /** @Valid 校验失败（DTO 字段级） */
+    /** @Valid 校验失败（DTO 字段级）——message 均含完整语义，直接透出，不带字段名前缀 */
     @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class})
     public R<Void> handleValid(BindException e) {
         FieldError fe = e.getBindingResult().getFieldError();
-        String msg = fe == null ? "参数校验失败" : fe.getField() + " " + fe.getDefaultMessage();
+        String msg = fe == null ? "参数校验失败" : fe.getDefaultMessage();
         return R.fail(ResultCode.PARAM_ERROR.getCode(), msg);
     }
 
-    /** 参数级异常（@RequestParam / @PathVariable / JSON 解析 / @Validated 单参） */
-    @ExceptionHandler({ConstraintViolationException.class,
-            MissingServletRequestParameterException.class,
+    /** 方法参数级校验失败（@Validated 单参，如分页 page/size）——message 均含完整语义，直接透出 */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public R<Void> handleConstraintViolation(ConstraintViolationException e) {
+        String msg = e.getConstraintViolations().stream()
+                .findFirst()
+                .map(ConstraintViolation::getMessage)
+                .orElse("参数校验失败");
+        return R.fail(ResultCode.PARAM_ERROR.getCode(), msg);
+    }
+
+    /** 参数级异常（@RequestParam / @PathVariable / JSON 解析） */
+    @ExceptionHandler({MissingServletRequestParameterException.class,
             MethodArgumentTypeMismatchException.class,
             HttpMessageNotReadableException.class})
     public R<Void> handleBadParam(Exception e) {
@@ -53,6 +63,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DuplicateKeyException.class)
     public R<Void> handleDuplicate(DuplicateKeyException e) {
         log.warn("唯一约束冲突: {}", e.getMessage());
+        // 概念唯一性（并发发起时部分唯一索引兜底）翻译为业务码
+        if (e.getMessage() != null && e.getMessage().contains("uk_concept_active")) {
+            return R.fail(ResultCode.BIZ_CONCEPT_ACTIVE_EXISTS);
+        }
+        // 概念投票唯一性（并发双投时 (concept_id, round, voter_id) 兜底）翻译为"已投过"
+        if (e.getMessage() != null && e.getMessage().contains("concept_vote_concept_id_round_voter_id_key")) {
+            return R.fail(ResultCode.BIZ_CONCEPT_ALREADY_VOTED);
+        }
         return R.fail(ResultCode.PARAM_ERROR.getCode(), "数据已存在（唯一性冲突）");
     }
 

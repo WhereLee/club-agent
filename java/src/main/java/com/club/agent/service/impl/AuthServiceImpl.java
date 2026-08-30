@@ -103,13 +103,15 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginVO login(LoginDTO dto, String ip) {
-        // 1. 验证码（一次性：校验后即删除）
-        String captchaKey = RedisKeys.CAPTCHA + dto.getCaptchaKey();
-        String expect = redisTemplate.opsForValue().get(captchaKey);
-        redisTemplate.delete(captchaKey);
-        if (expect == null || !expect.equalsIgnoreCase(dto.getCaptchaCode())) {
-            saveLoginLog(dto.getUsername(), ip, 0, "验证码错误或已过期");
-            throw new BizException(ResultCode.BIZ_CAPTCHA_ERROR);
+        // 1. 验证码（一次性：校验后即删除）；captcha.enabled=false 时跳过（开发/自动化测试）
+        if (captchaProperties.isEnabled()) {
+            String captchaKey = RedisKeys.CAPTCHA + dto.getCaptchaKey();
+            String expect = redisTemplate.opsForValue().get(captchaKey);
+            redisTemplate.delete(captchaKey);
+            if (expect == null || !expect.equalsIgnoreCase(dto.getCaptchaCode())) {
+                saveLoginLog(dto.getUsername(), ip, 0, "验证码错误或已过期");
+                throw new BizException(ResultCode.BIZ_CAPTCHA_ERROR);
+            }
         }
 
         // 2. 失败锁定检查（Redis 计数 TTL 即锁定时长）

@@ -1,5 +1,6 @@
 package com.club.agent.dto;
 
+import com.club.agent.annotation.Nickname;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -29,6 +30,6 @@ public class RegisterDTO {
     private String email;
 
     @NotBlank(message = "昵称不能为空")
-    @Size(max = 50, message = "昵称过长")
+    @Nickname
     private String nickname;
 }

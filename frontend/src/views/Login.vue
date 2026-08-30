@@ -15,7 +15,8 @@ const loading = ref(false)
 async function refreshCaptcha() {
   const res = await getCaptcha()
   form.captchaKey = res.data.captchaKey
-  captchaImg.value = 'data:image/png;base64,' + res.data.imgBase64
+  // 后端 imgBase64 已返回完整 data URI（data:image/png;base64,...），直接使用，勿再拼前缀
+  captchaImg.value = res.data.imgBase64
 }
 
 async function onSubmit() {
@@ -27,7 +28,8 @@ async function onSubmit() {
   try {
     await userStore.login({ ...form })
     ElMessage.success('登录成功')
-    router.push('/profile')
+    // 老师进管理台，学生进个人中心
+    router.push(userStore.userInfo?.isTeacher ? '/teacher' : '/profile')
   } catch (e) {
     // 验证码已一次性消费，失败必须刷新
     refreshCaptcha()

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.club.agent.mapper.ConceptDraftSessionMapper">
+
+    <!-- JSONB 列经 ::text 转字符串返回（D2 工具参数/表单快照） -->
+    <select id="selectByConceptId" resultType="com.club.agent.entity.ConceptDraftSession">
+        SELECT id, concept_id, user_id, role, content, tool_name,
+               tool_args::text AS tool_args,
+               form_snapshot::text AS form_snapshot,
+               tokens_in, tokens_out, created_at
+        FROM concept_draft_session
+        WHERE concept_id = #{conceptId}
+        ORDER BY created_at ASC, id ASC
+    </select>
+
+    <!-- 工具消息落库：JSONB 列必须显式 CAST（PG 不允许 varchar 隐式转 jsonb）。
+         id 由调用方用 IdWorker 生成（BIGINT 主键无默认值）。 -->
+    <insert id="insertToolMessage" parameterType="com.club.agent.entity.ConceptDraftSession">
+        INSERT INTO concept_draft_session (id, concept_id, user_id, role, content, tool_name, tool_args, created_at)
+        VALUES (#{id}, #{conceptId}, #{userId}, #{role}, #{content}, #{toolName},
+                CAST(#{toolArgs} AS jsonb), now())
+    </insert>
+
+</mapper>

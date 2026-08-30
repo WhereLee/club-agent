@@ -41,6 +41,12 @@ public class Membership {
     /** 审批人（老师/管理层） */
     private Long approvedBy;
 
+    /** 任期届数（管理层任命时写入；离职保留作为第X任标记） */
+    private Long termNo;
+
+    /** 前任管理层职务（离职时写入，用于第X任展示；重新任命时清空） */
+    private String formerRoleCode;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.club.agent.mapper.ConceptVoteMapper">
+
+    <!-- 概念投票记录（join 投票人昵称，按轮次/时间正序；展示与审计） -->
+    <select id="selectVotesByConcept" resultType="com.club.agent.vo.ConceptVoteVO">
+        SELECT v.id, v.concept_id, v.round, v.voter_id,
+               su.nickname AS voter_nickname,
+               v.result, v.comment, v.created_at
+        FROM concept_vote v
+        JOIN sys_user su ON su.id = v.voter_id
+        WHERE v.concept_id = #{conceptId}
+        ORDER BY v.round ASC, v.created_at ASC
+    </select>
+
+</mapper>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.club.agent.mapper.FileDraftSessionMapper">
+
+    <!-- tool_args JSONB 列：显式 CAST（K23 先例；空串传 null 避免 CAST 失败） -->
+    <insert id="insertToolMessage" parameterType="com.club.agent.entity.FileDraftSession">
+        INSERT INTO file_draft_session (id, activity_id, user_id, role, content, tool_name, tool_args, created_at)
+        VALUES (#{id}, #{activityId}, #{userId}, #{role}, #{content}, #{toolName},
+                CAST(#{toolArgs} AS jsonb), now())
+    </insert>
+
+</mapper>

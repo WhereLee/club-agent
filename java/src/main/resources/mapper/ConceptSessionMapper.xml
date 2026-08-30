@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.club.agent.mapper.ConceptSessionMapper">
+
+    <!-- 概念分页列表（join 发起人昵称；my_voted=当前用户是否已投当前轮） -->
+    <select id="selectConceptPage" resultType="com.club.agent.vo.ConceptVO">
+        SELECT c.id, c.club_id, c.user_id,
+               su.nickname AS requester_nickname,
+               c.status, c.reason, c.planned_time, c.planned_location, c.content,
+               c.submitted_at, c.deadline, c.created_at, c.updated_at,
+               EXISTS(SELECT 1 FROM concept_vote v
+                      WHERE v.concept_id = c.id AND v.voter_id = #{userId}
+                        AND v.round = CASE WHEN c.status = 3 THEN 2 ELSE 1 END) AS my_voted
+        FROM concept_session c
+        JOIN sys_user su ON su.id = c.user_id
+        WHERE c.club_id = #{clubId}
+        <if test="status != null">
+            AND c.status = #{status}
+        </if>
+        ORDER BY c.created_at DESC
+    </select>
+
+</mapper>
