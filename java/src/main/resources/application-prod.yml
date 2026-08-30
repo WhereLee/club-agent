@@ -18,3 +18,10 @@ spring:
 logging:
   level:
     com.club.agent: info
+
+# S2：生产环境关闭 API 文档（匿名可看完整 API 面）
+springdoc:
+  api-docs:
+    enabled: false
+knife4j:
+  enable: false
