@@ -26,6 +26,7 @@ import com.club.agent.mapper.SysUserMapper;
 import com.club.agent.mapper.RbacRoleMapper;
 import com.club.agent.entity.RbacRole;
 import com.club.agent.service.ActivityFileService;
+import com.club.agent.service.ActivityOwnership;
 import com.club.agent.service.ActivityService;
 import com.club.agent.vo.ActivityFileVO;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -55,6 +56,7 @@ public class ActivityFileServiceImpl implements ActivityFileService {
 
     private final ActivityMapper activityMapper;
     private final ActivityService activityService;
+    private final ActivityOwnership ownership;
     private final FormTemplateMapper formTemplateMapper;
     private final FormFieldMapper formFieldMapper;
     private final FormSubmissionMapper formSubmissionMapper;
@@ -69,8 +71,8 @@ public class ActivityFileServiceImpl implements ActivityFileService {
     @Override
     @Transactional
     public void saveDraft(Long clubId, Long activityId, Long userId, ActivityFileDTO dto) {
-        Activity activity = owned(clubId, activityId);
-        requireOwner(activity, userId);
+        Activity activity = ownership.getOwned(clubId, activityId);
+        ownership.requireOwner(activity, userId);
         requireClosedDiscussion(activity);
         validateSections(dto);
         writeSections(activityId, userId, dto.getSections());
@@ -79,8 +81,8 @@ public class ActivityFileServiceImpl implements ActivityFileService {
     @Override
     @Transactional
     public void publish(Long clubId, Long activityId, Long userId, ActivityFileDTO dto) {
-        Activity activity = owned(clubId, activityId);
-        requireOwner(activity, userId);
+        Activity activity = ownership.getOwned(clubId, activityId);
+        ownership.requireOwner(activity, userId);
         requireStatus(activity, Activity.STATUS_DISCUSSING);
         validateSections(dto);
         validateDuties(dto);
@@ -96,7 +98,7 @@ public class ActivityFileServiceImpl implements ActivityFileService {
 
     @Override
     public ActivityFileVO detail(Long clubId, Long activityId, Long userId) {
-        Activity activity = owned(clubId, activityId);
+        Activity activity = ownership.getOwned(clubId, activityId);
         FormTemplate file = formTemplateMapper.selectOne(new LambdaQueryWrapper<FormTemplate>()
                 .eq(FormTemplate::getActivityId, activityId)
                 .eq(FormTemplate::getType, FormTemplate.TYPE_FILE));
@@ -258,20 +260,6 @@ public class ActivityFileServiceImpl implements ActivityFileService {
         }
     }
 
-    private Activity owned(Long clubId, Long activityId) {
-        Activity a = activityMapper.selectById(activityId);
-        if (a == null || !a.getClubId().equals(clubId)) {
-            throw new BizException(ResultCode.BIZ_ACTIVITY_NOT_FOUND);
-        }
-        return a;
-    }
-
-    private void requireOwner(Activity activity, Long userId) {
-        if (!activity.getUserId().equals(userId)) {
-            throw new BizException(ResultCode.FORBIDDEN);
-        }
-    }
-
     private void requireStatus(Activity activity, int status) {
         if (activity.getStatus() != status) {
             throw new BizException(ResultCode.BIZ_ACTIVITY_STATE_FORBIDDEN);
@@ -301,7 +289,7 @@ public class ActivityFileServiceImpl implements ActivityFileService {
     }
 
     private void notifyFilePublished(Activity activity) {
-        for (Membership m : approvedMembers(activity.getClubId())) {
+        for (Membership m : ownership.approvedMembers(activity.getClubId())) {
             Message msg = new Message();
             msg.setRecipientId(m.getUserId());
             msg.setType(Message.TYPE_ACTIVITY_FILE);
@@ -326,12 +314,6 @@ public class ActivityFileServiceImpl implements ActivityFileService {
                 messageMapper.insert(msg);
             }
         }
-    }
-
-    private List<Membership> approvedMembers(Long clubId) {
-        return membershipMapper.selectList(new LambdaQueryWrapper<Membership>()
-                .eq(Membership::getClubId, clubId)
-                .eq(Membership::getStatus, Membership.STATUS_APPROVED));
     }
 
     private static String briefOf(Activity a) {

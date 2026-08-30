@@ -14,6 +14,7 @@ import com.club.agent.entity.Membership;
 import com.club.agent.entity.Message;
 import com.club.agent.exception.BizException;
 import com.club.agent.mapper.ActivityMapper;
+import com.club.agent.service.ActivityOwnership;
 import com.club.agent.mapper.FormAnswerMapper;
 import com.club.agent.mapper.FormFieldMapper;
 import com.club.agent.mapper.FormSubmissionMapper;
@@ -59,6 +60,7 @@ public class SurveyServiceImpl implements SurveyService {
     private static final Set<String> OPTION_TYPES = Set.of("radio", "select", "checkbox");
 
     private final ActivityMapper activityMapper;
+    private final ActivityOwnership ownership;
     private final ActivityService activityService;
     private final FormTemplateMapper formTemplateMapper;
     private final FormFieldMapper formFieldMapper;
@@ -72,7 +74,7 @@ public class SurveyServiceImpl implements SurveyService {
     @Override
     @Transactional
     public SurveyVO publish(Long clubId, Long activityId, Long userId, SurveyPublishDTO dto) {
-        Activity activity = getOwned(clubId, activityId);
+        Activity activity = ownership.getOwned(clubId, activityId);
         if (!activity.getUserId().equals(userId)) {
             throw new BizException(ResultCode.FORBIDDEN);
         }
@@ -231,7 +233,7 @@ public class SurveyServiceImpl implements SurveyService {
     @Override
     @Transactional
     public void startDiscuss(Long clubId, Long activityId, Long userId) {
-        Activity activity = getOwned(clubId, activityId);
+        Activity activity = ownership.getOwned(clubId, activityId);
         if (!activity.getUserId().equals(userId)) {
             throw new BizException(ResultCode.FORBIDDEN);
         }
@@ -321,14 +323,6 @@ public class SurveyServiceImpl implements SurveyService {
         formFieldMapper.insertWithOptions(f);
     }
 
-    private Activity getOwned(Long clubId, Long activityId) {
-        Activity a = activityMapper.selectById(activityId);
-        if (a == null || !a.getClubId().equals(clubId)) {
-            throw new BizException(ResultCode.BIZ_ACTIVITY_NOT_FOUND);
-        }
-        return a;
-    }
-
     private FormTemplate surveyOf(Long activityId) {
         FormTemplate t = formTemplateMapper.selectOne(new LambdaQueryWrapper<FormTemplate>()
                 .eq(FormTemplate::getActivityId, activityId)
@@ -340,15 +334,9 @@ public class SurveyServiceImpl implements SurveyService {
     }
 
     /** 该社团全部已通过成员 */
-    private List<Membership> approvedMembers(Long clubId) {
-        return membershipMapper.selectList(new LambdaQueryWrapper<Membership>()
-                .eq(Membership::getClubId, clubId)
-                .eq(Membership::getStatus, Membership.STATUS_APPROVED));
-    }
-
     /** 站内消息：问卷发布通知全员 */
     private void notifyAllMembers(Long clubId, String type, String title, String content, Long refActivityId) {
-        for (Membership m : approvedMembers(clubId)) {
+        for (Membership m : ownership.approvedMembers(clubId)) {
             Message msg = new Message();
             msg.setRecipientId(m.getUserId());
             msg.setType(type);

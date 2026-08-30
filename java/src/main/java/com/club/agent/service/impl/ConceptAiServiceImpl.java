@@ -17,6 +17,7 @@ import com.club.agent.mapper.ConceptTraceMapper;
 import com.club.agent.mapper.MembershipMapper;
 import com.club.agent.mapper.SysUserMapper;
 import com.club.agent.service.ConceptAiService;
+import com.club.agent.service.ActivityOwnership;
 import com.club.agent.service.ConceptService;
 import com.club.agent.vo.ClubContextVO;
 import com.club.agent.vo.ConceptVO;
@@ -63,6 +64,7 @@ public class ConceptAiServiceImpl implements ConceptAiService {
     private final SysUserMapper sysUserMapper;
     private final ConceptService conceptService;
     private final PythonClientFactory pythonClient;
+    private final ActivityOwnership ownership;
 
     @Value("${ai.draft.enabled:true}")
     private boolean aiDraftEnabled;
@@ -264,16 +266,12 @@ public class ConceptAiServiceImpl implements ConceptAiService {
         ConceptTrace t = new ConceptTrace();
         t.setConceptId(conceptId);
         t.setOperatorId(userId);
-        t.setOperatorName(nicknameOf(userId));
+        t.setOperatorName(ownership.nicknameOf(userId));
         t.setAction(ConceptTrace.ACTION_AI_DRAFT);
         t.setDetail(StringUtils.hasText(dto.getNote()) ? dto.getNote() : "发起人采纳 AI 起草草案");
         conceptTraceMapper.insert(t);
 
         return conceptService.detail(clubId, conceptId);
-    }
-
-    private String nicknameOf(Long userId) {
-        return sysUserMapper.selectById(userId) == null ? "发起人" : sysUserMapper.selectById(userId).getNickname();
     }
 
     /** Python 响应：最终回复 + 本轮工具调用记录 */

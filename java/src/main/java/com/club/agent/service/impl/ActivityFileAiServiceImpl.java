@@ -85,7 +85,7 @@ public class ActivityFileAiServiceImpl implements ActivityFileAiService {
     @Override
     @Transactional
     public List<FileDraftMessageVO> chat(Long clubId, Long activityId, Long userId, String message, String authHeader) {
-        Activity activity = owned(clubId, activityId);
+        Activity activity = ownership.getOwned(clubId, activityId);
         if (!activity.getUserId().equals(userId)) {
             throw new BizException(ResultCode.FORBIDDEN);
         }
@@ -133,7 +133,7 @@ public class ActivityFileAiServiceImpl implements ActivityFileAiService {
 
     @Override
     public List<FileDraftMessageVO> session(Long clubId, Long activityId, Long userId) {
-        Activity activity = owned(clubId, activityId);
+        Activity activity = ownership.getOwned(clubId, activityId);
         if (!activity.getUserId().equals(userId)) {
             throw new BizException(ResultCode.FORBIDDEN);
         }
@@ -142,7 +142,7 @@ public class ActivityFileAiServiceImpl implements ActivityFileAiService {
 
     @Override
     public ActivityContextVO context(Long clubId, Long activityId, Long userId) {
-        Activity activity = owned(clubId, activityId);
+        Activity activity = ownership.getOwned(clubId, activityId);
         ActivityContextVO vo = new ActivityContextVO();
         // ① 概念批复结果
         ConceptSession concept = conceptSessionMapper.selectById(activity.getConceptId());
@@ -294,14 +294,6 @@ public class ActivityFileAiServiceImpl implements ActivityFileAiService {
                     vo.setCreatedAt(m.getCreatedAt());
                     return vo;
                 }).toList();
-    }
-
-    private Activity owned(Long clubId, Long activityId) {
-        Activity a = activityMapper.selectById(activityId);
-        if (a == null || !a.getClubId().equals(clubId)) {
-            throw new BizException(ResultCode.BIZ_ACTIVITY_NOT_FOUND);
-        }
-        return a;
     }
 
     private static String truncate(String s, int max) {

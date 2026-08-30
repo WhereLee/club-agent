@@ -28,6 +28,7 @@ import com.club.agent.mapper.ActivityTraceMapper;
 import com.club.agent.mapper.MembershipMapper;
 import com.club.agent.mapper.MessageMapper;
 import com.club.agent.mapper.SysUserMapper;
+import com.club.agent.service.ActivityOwnership;
 import com.club.agent.service.ActivityService;
 import com.club.agent.service.SummaryService;
 import com.club.agent.vo.ActivityVO;
@@ -67,6 +68,7 @@ public class ActivityServiceImpl implements ActivityService {
     private final ObjectMapper objectMapper;
     private final ActivitySummaryMapper summaryMapper;
     private final SummaryService summaryService;
+    private final ActivityOwnership ownership;
 
     @Override
     @Transactional
@@ -103,17 +105,17 @@ public class ActivityServiceImpl implements ActivityService {
 
     @Override
     public ActivityVO detail(Long clubId, Long activityId) {
-        Activity a = getOwned(clubId, activityId);
+        Activity a = ownership.getOwned(clubId, activityId);
         List<ActivityTrace> traces = activityTraceMapper.selectList(new LambdaQueryWrapper<ActivityTrace>()
                 .eq(ActivityTrace::getActivityId, activityId)
                 .orderByAsc(ActivityTrace::getCreatedAt));
-        return toVO(a, nicknameOf(a.getUserId()), traces);
+        return toVO(a, ownership.nicknameOf(a.getUserId()), traces);
     }
 
     @Override
     @Transactional
     public void cancel(Long clubId, Long activityId, Long userId, String reason) {
-        Activity a = getOwned(clubId, activityId);
+        Activity a = ownership.getOwned(clubId, activityId);
         if (!a.getUserId().equals(userId)) {
             throw new BizException(ResultCode.FORBIDDEN);
         }
@@ -134,21 +136,6 @@ public class ActivityServiceImpl implements ActivityService {
     }
 
     /** 权限收口：活动存在 + 归属社团 + 发起人本人（状态机推进统一前置校验） */
-    private void requireOwner(Long clubId, Long activityId, Long userId) {
-        Activity a = getOwned(clubId, activityId);
-        if (!a.getUserId().equals(userId)) {
-            throw new BizException(ResultCode.FORBIDDEN);
-        }
-    }
-
-    private Activity getOwned(Long clubId, Long activityId) {
-        Activity a = activityMapper.selectById(activityId);
-        if (a == null || !a.getClubId().equals(clubId)) {
-            throw new BizException(ResultCode.BIZ_ACTIVITY_NOT_FOUND);
-        }
-        return a;
-    }
-
     @Override
     @Transactional
     public void startSurvey(Long clubId, Long activityId, Long userId, LocalDateTime deadline) {
@@ -200,7 +187,7 @@ public class ActivityServiceImpl implements ActivityService {
     @Override
     @Transactional
     public void endDiscussion(Long clubId, Long activityId, Long userId) {
-        requireOwner(clubId, activityId, userId);
+        ownership.requireOwner(clubId, activityId, userId);
         // 条件 SET：仅讨论中且未关闭可执行（幂等：已关闭则拒绝）
         int updated = activityMapper.update(null, new LambdaUpdateWrapper<Activity>()
                 .eq(Activity::getId, activityId)
@@ -240,7 +227,7 @@ public class ActivityServiceImpl implements ActivityService {
     @Override
     @Transactional
     public void startSignup(Long clubId, Long activityId, Long userId, LocalDateTime deadline) {
-        requireOwner(clubId, activityId, userId);
+        ownership.requireOwner(clubId, activityId, userId);
         if (deadline == null) {
             throw new BizException(ResultCode.PARAM_ERROR);
         }
@@ -261,7 +248,7 @@ public class ActivityServiceImpl implements ActivityService {
     @Override
     @Transactional
     public void startExecution(Long clubId, Long activityId, Long userId, LocalDateTime recordDeadline) {
-        requireOwner(clubId, activityId, userId);
+        ownership.requireOwner(clubId, activityId, userId);
         int updated = activityMapper.update(null, new LambdaUpdateWrapper<Activity>()
                 .eq(Activity::getId, activityId)
                 .eq(Activity::getClubId, clubId)
@@ -279,7 +266,7 @@ public class ActivityServiceImpl implements ActivityService {
     @Override
     @Transactional
     public void completeExecution(Long clubId, Long activityId, Long userId) {
-        requireOwner(clubId, activityId, userId);
+        ownership.requireOwner(clubId, activityId, userId);
         int updated = activityMapper.update(null, new LambdaUpdateWrapper<Activity>()
                 .eq(Activity::getId, activityId)
                 .eq(Activity::getClubId, clubId)
@@ -314,7 +301,7 @@ public class ActivityServiceImpl implements ActivityService {
     @Transactional
     public void closeRecords(Long clubId, Long activityId, Long userId, boolean system) {
         if (!system) {
-            requireOwner(clubId, activityId, userId);
+            ownership.requireOwner(clubId, activityId, userId);
         }
         // 系统扫描（userId=null）与发起人手动共用；留痕中 → 总结中（总结阶段：进入后自动生成活动总结）
         int updated = activityMapper.update(null, new LambdaUpdateWrapper<Activity>()
@@ -356,7 +343,7 @@ public class ActivityServiceImpl implements ActivityService {
     @Override
     @Transactional
     public void archive(Long clubId, Long activityId, Long userId) {
-        requireOwner(clubId, activityId, userId);
+        ownership.requireOwner(clubId, activityId, userId);
         // 前置：总结必须已生成（归档不能收一个没总结的活动）
         ActivitySummary s = summaryMapper.selectOne(new LambdaQueryWrapper<ActivitySummary>()
                 .eq(ActivitySummary::getActivityId, activityId));
@@ -381,22 +368,16 @@ public class ActivityServiceImpl implements ActivityService {
         ActivityTrace t = new ActivityTrace();
         t.setActivityId(activityId);
         t.setOperatorId(operatorId);
-        t.setOperatorName(operatorId == null ? "系统" : nicknameOf(operatorId));
+        t.setOperatorName(operatorId == null ? "系统" : ownership.nicknameOf(operatorId));
         t.setAction(action);
         t.setDetail(detail);
         activityTraceMapper.insert(t);
     }
 
     /** 该社团全部已通过成员 */
-    private List<Membership> approvedMembers(Long clubId) {
-        return membershipMapper.selectList(new LambdaQueryWrapper<Membership>()
-                .eq(Membership::getClubId, clubId)
-                .eq(Membership::getStatus, Membership.STATUS_APPROVED));
-    }
-
     /** 站内消息：通知该社团全部成员（公示/取消；老师不接收——无审批职责，看活动列表即可） */
     private void notifyAllMembers(Long clubId, String type, String title, String content, Long refActivityId) {
-        for (Membership m : approvedMembers(clubId)) {
+        for (Membership m : ownership.approvedMembers(clubId)) {
             Message msg = new Message();
             msg.setRecipientId(m.getUserId());
             msg.setType(type);
@@ -418,10 +399,6 @@ public class ActivityServiceImpl implements ActivityService {
         }
         return sysUserMapper.selectBatchIds(userIds).stream()
                 .collect(Collectors.toMap(SysUser::getId, SysUser::getNickname, (a, b) -> a));
-    }
-
-    private String nicknameOf(Long userId) {
-        return sysUserMapper.selectById(userId) == null ? "" : sysUserMapper.selectById(userId).getNickname();
     }
 
     /** 活动简述（通知标题用，取发起理由前 20 字；活动无独立名称字段） */

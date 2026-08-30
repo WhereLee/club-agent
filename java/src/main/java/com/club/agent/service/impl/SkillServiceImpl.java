@@ -8,6 +8,7 @@ import com.club.agent.exception.BizException;
 import com.club.agent.mapper.ConceptSessionMapper;
 import com.club.agent.mapper.ConceptTraceMapper;
 import com.club.agent.mapper.SysUserMapper;
+import com.club.agent.service.ActivityOwnership;
 import com.club.agent.service.SkillService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,7 @@ public class SkillServiceImpl implements SkillService {
 
     private final ConceptSessionMapper conceptSessionMapper;
     private final ConceptTraceMapper conceptTraceMapper;
+    private final ActivityOwnership ownership;
     private final SysUserMapper sysUserMapper;
 
     @Value("${ai.draft.skill-dir:../skills}")
@@ -66,7 +68,7 @@ public class SkillServiceImpl implements SkillService {
             ConceptTrace t = new ConceptTrace();
             t.setConceptId(dto.getSourceConceptId());
             t.setOperatorId(userId);
-            t.setOperatorName(nicknameOf(userId));
+            t.setOperatorName(ownership.nicknameOf(userId));
             t.setAction(ConceptTrace.ACTION_AI_SKILL);
             t.setDetail("SKILL 落盘：" + name);
             conceptTraceMapper.insert(t);
@@ -77,7 +79,4 @@ public class SkillServiceImpl implements SkillService {
         }
     }
 
-    private String nicknameOf(Long userId) {
-        return sysUserMapper.selectById(userId) == null ? "发起人" : sysUserMapper.selectById(userId).getNickname();
-    }
 }

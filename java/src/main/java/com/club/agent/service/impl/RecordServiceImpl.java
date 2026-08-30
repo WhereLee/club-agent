@@ -13,6 +13,7 @@ import com.club.agent.entity.FormTemplate;
 import com.club.agent.entity.SysUser;
 import com.club.agent.exception.BizException;
 import com.club.agent.mapper.ActivityMapper;
+import com.club.agent.service.ActivityOwnership;
 import com.club.agent.mapper.ActivityRecordScoreMapper;
 import com.club.agent.mapper.FormAnswerMapper;
 import com.club.agent.mapper.FormFieldMapper;
@@ -49,6 +50,7 @@ import java.util.stream.Collectors;
 public class RecordServiceImpl implements RecordService {
 
     private final ActivityMapper activityMapper;
+    private final ActivityOwnership ownership;
     private final FormTemplateMapper formTemplateMapper;
     private final FormFieldMapper formFieldMapper;
     private final FormSubmissionMapper formSubmissionMapper;
@@ -60,7 +62,7 @@ public class RecordServiceImpl implements RecordService {
     @Override
     @Transactional
     public void submit(Long clubId, Long activityId, Long userId, RecordSubmitDTO dto) {
-        Activity a = getOwned(clubId, activityId);
+        Activity a = ownership.getOwned(clubId, activityId);
         if (a.getStatus() != Activity.STATUS_RECORDING) {
             throw new BizException(ResultCode.BIZ_ACTIVITY_STATE_FORBIDDEN);
         }
@@ -112,7 +114,7 @@ public class RecordServiceImpl implements RecordService {
 
     @Override
     public RecordVO mine(Long clubId, Long activityId, Long userId) {
-        getOwned(clubId, activityId);
+        ownership.getOwned(clubId, activityId);
         FormTemplate t = recordOf(activityId);
         RecordVO vo = new RecordVO();
         vo.setTemplateId(t.getId());
@@ -143,7 +145,7 @@ public class RecordServiceImpl implements RecordService {
 
     @Override
     public List<RecordMemberVO> list(Long clubId, Long activityId) {
-        getOwned(clubId, activityId);
+        ownership.getOwned(clubId, activityId);
         FormTemplate t = recordOf(activityId);
         List<FormField> fields = formFieldMapper.selectList(new LambdaQueryWrapper<FormField>()
                 .eq(FormField::getTemplateId, t.getId()));
@@ -199,14 +201,6 @@ public class RecordServiceImpl implements RecordService {
             log.warn("options 解析失败：{}", json);
             return List.of();
         }
-    }
-
-    private Activity getOwned(Long clubId, Long activityId) {
-        Activity a = activityMapper.selectById(activityId);
-        if (a == null || !a.getClubId().equals(clubId)) {
-            throw new BizException(ResultCode.BIZ_ACTIVITY_NOT_FOUND);
-        }
-        return a;
     }
 
     private FormTemplate recordOf(Long activityId) {

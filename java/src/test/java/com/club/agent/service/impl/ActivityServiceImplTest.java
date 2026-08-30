@@ -25,6 +25,7 @@ import com.club.agent.mapper.FormTemplateMapper;
 import com.club.agent.mapper.MembershipMapper;
 import com.club.agent.mapper.MessageMapper;
 import com.club.agent.mapper.SysUserMapper;
+import com.club.agent.service.ActivityOwnership;
 import com.club.agent.service.SummaryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -94,6 +95,9 @@ class ActivityServiceImplTest {
     void setUp() {
         // @Value 字段在纯 Mockito 单测不注入，手动设置阈值（默认 3）
         ReflectionTestUtils.setField(activityService, "highFreqMinMsgs", 3);
+        // Q1：归属校验抽到 ActivityOwnership 组件——注入真实实例（复用 mock mapper，行为与重构前等价）
+        ReflectionTestUtils.setField(activityService, "ownership",
+                new ActivityOwnership(activityMapper, membershipMapper, sysUserMapper));
     }
 
     // ---- 工具 ----

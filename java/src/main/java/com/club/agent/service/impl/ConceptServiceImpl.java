@@ -26,6 +26,7 @@ import com.club.agent.mapper.MessageMapper;
 import com.club.agent.mapper.RbacRoleMapper;
 import com.club.agent.mapper.SysUserMapper;
 import com.club.agent.service.ActivityService;
+import com.club.agent.service.ActivityOwnership;
 import com.club.agent.service.ConceptService;
 import com.club.agent.util.RoleConstants;
 import com.club.agent.vo.ConceptVO;
@@ -57,6 +58,7 @@ public class ConceptServiceImpl implements ConceptService {
             ConceptSession.STATUS_REVOTING, ConceptSession.STATUS_TEACHER_REVIEW);
 
     private final ConceptSessionMapper conceptSessionMapper;
+    private final ActivityOwnership ownership;
     private final ConceptTraceMapper conceptTraceMapper;
     private final ConceptVoteMapper conceptVoteMapper;
     private final ClubMapper clubMapper;
@@ -94,7 +96,7 @@ public class ConceptServiceImpl implements ConceptService {
         applyDraft(session, dto);
         conceptSessionMapper.insert(session);
         trace(session.getId(), userId, ConceptTrace.ACTION_CREATE, null);
-        return toVO(session, nicknameOf(userId));
+        return toVO(session, ownership.nicknameOf(userId));
     }
 
     @Override
@@ -105,7 +107,7 @@ public class ConceptServiceImpl implements ConceptService {
     @Override
     public ConceptVO detail(Long clubId, Long id) {
         ConceptSession session = getOwned(clubId, id);
-        ConceptVO vo = toVO(session, nicknameOf(session.getUserId()));
+        ConceptVO vo = toVO(session, ownership.nicknameOf(session.getUserId()));
         // 详情附带投票记录 + 全量时间线（透明留痕，老师/管理层审阅数据源）
         vo.setVotes(conceptVoteMapper.selectVotesByConcept(id));
         vo.setTraces(conceptTraceMapper.selectList(new LambdaQueryWrapper<ConceptTrace>()
@@ -130,7 +132,7 @@ public class ConceptServiceImpl implements ConceptService {
             throw new BizException(ResultCode.BIZ_CONCEPT_DRAFT_CONFLICT);
         }
         trace(id, userId, ConceptTrace.ACTION_SAVE, null);
-        return toVO(session, nicknameOf(userId));
+        return toVO(session, ownership.nicknameOf(userId));
     }
 
     @Override
@@ -411,7 +413,7 @@ public class ConceptServiceImpl implements ConceptService {
         ConceptTrace t = new ConceptTrace();
         t.setConceptId(conceptId);
         t.setOperatorId(operatorId);
-        t.setOperatorName(operatorId == null ? "系统" : nicknameOf(operatorId));
+        t.setOperatorName(operatorId == null ? "系统" : ownership.nicknameOf(operatorId));
         t.setAction(action);
         t.setDetail(detail);
         conceptTraceMapper.insert(t);
@@ -425,11 +427,6 @@ public class ConceptServiceImpl implements ConceptService {
         session.setPlannedTime(trimToNull(dto.getPlannedTime()));
         session.setPlannedLocation(trimToNull(dto.getPlannedLocation()));
         session.setContent(trimToNull(dto.getContent()));
-    }
-
-    private String nicknameOf(Long userId) {
-        SysUser user = sysUserMapper.selectById(userId);
-        return user == null ? "" : user.getNickname();
     }
 
     private ConceptVO toVO(ConceptSession s, String requesterNickname) {
