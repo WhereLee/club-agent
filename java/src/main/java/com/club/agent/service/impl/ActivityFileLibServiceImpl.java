@@ -12,13 +12,16 @@ import com.club.agent.mapper.SysUserMapper;
 import com.club.agent.service.ActivityFileLibService;
 import com.club.agent.service.ActivityOwnership;
 import com.club.agent.storage.StorageService;
+import com.club.agent.util.RedisKeys;
 import com.club.agent.vo.ActivityFileLibVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
@@ -50,6 +53,10 @@ public class ActivityFileLibServiceImpl implements ActivityFileLibService {
     private final StorageService storageService;
     private final RagClientFactory ragClientFactory;
     private final ActivityOwnership ownership;
+    private final StringRedisTemplate redisTemplate;
+
+    /** 懒同步节流窗口：同一记录在窗口内最多查一次 rag（列表可被全员高频触发，30s 超时/条会拖垮列表） */
+    private static final Duration SYNC_THROTTLE = Duration.ofSeconds(30);
 
     /** 知识服务总开关：false 时上传拒绝（不伪造成功），检索侧退化为纯 SQL 经验源 */
     @Value("${rag.enabled:true}")
@@ -119,10 +126,16 @@ public class ActivityFileLibServiceImpl implements ActivityFileLibService {
         return rows.stream().map(r -> toVO(r, names.get(r.getUploaderId()))).toList();
     }
 
-    /** 懒同步：parsing 中的记录查 rag 解析结果回填（避免状态永久停留；尽力而为）。 */
+    /** 懒同步：parsing 中的记录查 rag 解析结果回填（避免状态永久停留；尽力而为）。
+     *  节流：Redis setIfAbsent + 30s TTL，窗口内重复访问跳过（N+1 外部调用降频）；
+     *  失败不置 key，下个窗口重试。 */
     private void syncRagStatus(ActivityFileLib r, Long clubId) {
         if (!ActivityFileLib.RAG_PARSING.equals(r.getRagStatus()) || r.getRagFileId() == null) {
             return;
+        }
+        String throttleKey = RedisKeys.FILE_LIB_SYNC + r.getId();
+        if (!Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(throttleKey, "1", SYNC_THROTTLE))) {
+            return;  // 窗口内已查过（或正在查），跳过本轮
         }
         try {
             String st = ragClientFactory.queryParseStatus(r.getRagFileId(), clubId);

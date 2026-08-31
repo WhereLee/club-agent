@@ -25,6 +25,12 @@ public final class RedisKeys {
     /** 问答会话并发互斥锁（同一会话同时只能一个提问在跑，防 PostgresSaver 同 thread 并发写） */
     public static final String QA_CHAT_LOCK = PREFIX + "qa:chat:";
 
+    /** 资料列表懒同步节流标记（parsing 记录 30s 内最多查一次 rag 解析状态，防列表 N+1 外部调用） */
+    public static final String FILE_LIB_SYNC = PREFIX + "filelib:sync:";
+
+    /** 总结报告入 rag 并发单飞锁（归档触发/重生成/调度补偿并发时同一活动只允许一个入库任务） */
+    public static final String SUMMARY_RAG_SYNC = PREFIX + "summary:rag-sync:";
+
     private RedisKeys() {
     }
 }

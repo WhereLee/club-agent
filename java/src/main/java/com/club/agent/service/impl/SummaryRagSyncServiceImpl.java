@@ -9,16 +9,19 @@ import com.club.agent.mapper.ActivityMapper;
 import com.club.agent.mapper.ActivitySummaryMapper;
 import com.club.agent.mapper.ExperienceEntryMapper;
 import com.club.agent.service.SummaryRagSyncService;
+import com.club.agent.util.RedisKeys;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +45,10 @@ public class SummaryRagSyncServiceImpl implements SummaryRagSyncService {
     private final ExperienceEntryMapper experienceEntryMapper;
     private final RagClientFactory ragClientFactory;
     private final ObjectMapper objectMapper;
+    private final StringRedisTemplate redisTemplate;
+
+    /** 单飞锁 TTL：一次入库流程远超秒级，5 分钟兜底防锁残留（进程崩溃时自动过期，不阻塞下次触发） */
+    private static final Duration SYNC_LOCK_TTL = Duration.ofMinutes(5);
 
     /** 知识服务总开关：与活动资料库一致（关闭时不推送，仅告警） */
     @Value("${rag.enabled:true}")
@@ -54,10 +61,23 @@ public class SummaryRagSyncServiceImpl implements SummaryRagSyncService {
             log.warn("rag.enabled=false，跳过总结报告入库: activity={}", activityId);
             return;
         }
+        // 并发单飞：归档触发 + 重生成 + 调度补偿可能同时到达，两个 doSync 并发会互相软删对方刚推的文件
+        // 产生活跃孤儿（旧文件被软删、新文件未被引用）。Redis 锁：拿到才执行，拿不到说明已在入库，跳过。
+        String lockKey = RedisKeys.SUMMARY_RAG_SYNC + activityId;
+        if (!Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(lockKey, "1", SYNC_LOCK_TTL))) {
+            log.info("总结入库已在进行（并发跳过）: activity={}", activityId);
+            return;
+        }
         try {
             doSync(clubId, activityId);
         } catch (Exception e) {
             log.warn("总结报告入 rag 失败（不阻断主流程）: activity={} err={}", activityId, e.getMessage());
+        } finally {
+            // 释放锁；Redis 故障时删除失败由 TTL 兜底过期（不覆盖业务异常语义）
+            try {
+                redisTemplate.delete(lockKey);
+            } catch (Exception ignored) {
+            }
         }
     }
 

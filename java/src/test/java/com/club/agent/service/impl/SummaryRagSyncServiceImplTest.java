@@ -21,8 +21,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,6 +49,8 @@ class SummaryRagSyncServiceImplTest {
     @Mock ActivitySummaryMapper summaryMapper;
     @Mock ExperienceEntryMapper experienceEntryMapper;
     @Mock RagClientFactory ragClientFactory;
+    @Mock StringRedisTemplate redisTemplate;
+    @Mock ValueOperations<String, String> valueOps;
 
     @InjectMocks SummaryRagSyncServiceImpl syncService;
 
@@ -57,6 +62,9 @@ class SummaryRagSyncServiceImplTest {
         // 单测无 Spring 上下文：@Value 不生效，手动开启开关 + 注入真实 ObjectMapper
         ReflectionTestUtils.setField(syncService, "ragEnabled", true);
         ReflectionTestUtils.setField(syncService, "objectMapper", new ObjectMapper());
+        // 并发单飞锁默认可获取（锁冲突/纯渲染用例单独覆盖；lenient：部分用例不走锁）
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        lenient().when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
     }
 
     @BeforeAll
@@ -144,6 +152,19 @@ class SummaryRagSyncServiceImplTest {
     }
 
     @Test
+    @DisplayName("并发单飞：锁被占用（他处入库进行中）时跳过，不软删不重推")
+    void lockConflict_skipsIngest() {
+        when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(false);
+
+        syncService.syncToRag(CLUB, ACT);
+
+        verify(summaryMapper, never()).selectOne(any(LambdaQueryWrapper.class));
+        verify(ragClientFactory, never()).deactivateFile(anyLong(), anyLong());
+        verify(ragClientFactory, never()).ingestBytes(any(byte[].class), anyString(), anyLong(), anyString());
+        verify(redisTemplate, never()).delete(anyString());  // 未持有锁不释放
+    }
+
+    @Test
     @DisplayName("渲染内容：指标平铺 + 正文 + 沉淀经验 + 文件名净化")
     void renderMarkdown_containsAllSections() {
         Activity a = activity();
@@ -161,5 +182,15 @@ class SummaryRagSyncServiceImplTest {
                 .contains("迟到集中在开场前 10 分钟");
         // 文件名中冒号被净化为下划线（Windows 文件名非法字符）
         assertThat(SummaryRagSyncServiceImpl.filename(a)).isEqualTo("活动总结-2026-09-01 14_00 操场.md");
+    }
+
+    @Test
+    @DisplayName("锁释放：正常路径完成后删除锁 key（key 含 activityId）")
+    void lock_releasedAfterSync() {
+        when(summaryMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(summary("pending", null));
+
+        syncService.syncToRag(CLUB, ACT);
+
+        verify(redisTemplate).delete(org.mockito.ArgumentMatchers.argThat((String k) -> k.contains(ACT.toString())));
     }
 }
