@@ -26,6 +26,7 @@ import com.club.agent.service.SignupService;
 import com.club.agent.vo.SignupMemberVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -98,7 +99,12 @@ public class SignupServiceImpl implements SignupService {
             s.setOnlineAssist(assist && !participate);
             s.setCreatedAt(LocalDateTime.now());
             s.setUpdatedAt(LocalDateTime.now());
-            signupMapper.insert(s);
+            try {
+                signupMapper.insert(s);
+            } catch (DuplicateKeyException e) {
+                // 并发双击穿透预检：唯一约束兜底，翻译为友好提示（与注册/申请的一致性）
+                throw new BizException(ResultCode.BIZ_ALREADY_SIGNED);
+            }
         }
         // 在线协助 → 提示发起人（无论新增/修改）
         if (!participate && assist) {

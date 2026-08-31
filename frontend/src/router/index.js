@@ -39,7 +39,12 @@ router.beforeEach((to) => {
   }
   // 老师路由：非老师（或未登录态信息缺失）拦截回社团列表
   if (to.meta.teacher) {
-    const user = JSON.parse(localStorage.getItem('club_user') || 'null')
+    let user = null
+    try {
+      user = JSON.parse(localStorage.getItem('club_user') || 'null')
+    } catch (e) {
+      localStorage.removeItem('club_user')  // 损坏数据自愈，避免守卫抛异常阻断全部导航
+    }
     if (!user?.isTeacher) {
       return '/clubs'
     }

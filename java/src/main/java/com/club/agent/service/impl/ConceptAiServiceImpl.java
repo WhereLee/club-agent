@@ -185,7 +185,7 @@ public class ConceptAiServiceImpl implements ConceptAiService {
     }
 
     @Override
-    @Async("logExecutor")
+    @Async("aiExecutor")
     public void asyncGenerateBrief(Long conceptId) {
         try {
             ConceptSession concept = conceptSessionMapper.selectById(conceptId);

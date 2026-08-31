@@ -39,7 +39,9 @@ DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{_db_url.split('://', 1)[1]}"
 # ---------- 内部 secret（Java 调用本服务校验；未配置则跳过，仅限本地开发） ----------
 QA_INTERNAL_SECRET = os.getenv("AGENT_QA_INTERNAL_SECRET", "").strip()
 if not QA_INTERNAL_SECRET:
-    print("WARN: AGENT_QA_INTERNAL_SECRET 未配置，内部接口不校验 X-Internal-Secret（仅限本地开发，生产必须配置）")
+    raise RuntimeError(
+        "缺少环境变量 AGENT_QA_INTERNAL_SECRET（与 Java 侧 fail-fast 对齐：密钥未配置时拒绝启动，防止鉴权旁路）"
+    )
 
 # ---------- 服务 ----------
 SERVICE_PORT = int(os.getenv("AGENT_QA_PORT", "8095"))

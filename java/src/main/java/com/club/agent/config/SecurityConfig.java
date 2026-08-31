@@ -33,11 +33,11 @@ public class SecurityConfig {
 
     /** 匿名可访问的公开路径 */
     private static final String[] WHITE_LIST = {
-            "/health", "/actuator/**",
+            "/health", "/actuator/health", "/actuator/info",  // 精确放行（不暴露全部 actuator）
             "/doc.html", "/webjars/**", "/v3/api-docs/**",
             "/swagger-ui/**", "/swagger-resources/**", "/favicon.ico",
             "/auth/captcha", "/auth/register", "/auth/login",
-            "/uploads/**",
+            "/uploads/**",  // 本地存储静态资源（dev）；生产走 COS 域名不暴露此路径
             "/ws/**"   // 块 C：STOMP 握手（应用层 ChannelInterceptor 鉴权，不走 HTTP 过滤器链）
     };
 

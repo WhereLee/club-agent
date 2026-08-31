@@ -326,4 +326,6 @@ def resume(activity_id: str, answers: dict) -> dict:
     st = graph.get_state(cfg)
     if st.next:
         logger.warning("总结恢复后仍中断（异常路径）activity=%s", activity_id)
+        # 图未走完却报 success 会污染状态机（Java 把不完整报告落库）：显式返回 awaiting 供重试/再次 resume
+        return {"status": "awaiting", "questions": []}
     return _finish(st.values)

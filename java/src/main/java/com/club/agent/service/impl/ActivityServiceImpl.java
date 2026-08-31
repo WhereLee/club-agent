@@ -39,6 +39,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -316,7 +318,24 @@ public class ActivityServiceImpl implements ActivityService {
         }
         trace(activityId, system ? null : userId, ActivityTrace.ACTION_RECORD_CLOSE,
                 system ? "留痕提交截止，自动进入总结" : "留痕关闭，进入总结");
-        // 进入总结中自动触发总结生成（@Async，不阻塞状态推进；失败定时重试 + 手动重生成兜底）
+        // 进入总结中自动触发总结生成：有事务时必须等提交后触发（afterCommit），
+        // 否则异步线程可能早于事务提交读到旧状态 RECORDING，状态门直接 return，
+        // 活动卡死 SUMMARIZING 且无 summary 行（P1 竞态，全量审查发现）
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    triggerGenerate(clubId, activityId);
+                }
+            });
+        } else {
+            // 无事务上下文（单测/非事务调用方）：直接触发
+            triggerGenerate(clubId, activityId);
+        }
+    }
+
+    /** 总结生成触发（带池满拒绝兕底：generate 未执行、无行可扫时落 failed 行） */
+    private void triggerGenerate(Long clubId, Long activityId) {
         try {
             summaryService.generate(clubId, activityId, null);
         } catch (TaskRejectedException e) {

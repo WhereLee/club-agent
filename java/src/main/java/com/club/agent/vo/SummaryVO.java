@@ -1,5 +1,7 @@
 package com.club.agent.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -10,6 +12,7 @@ import java.util.Map;
 @Data
 public class SummaryVO {
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long activityId;
 
     /** pending / awaiting / success / failed */

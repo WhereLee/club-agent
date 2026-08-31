@@ -65,6 +65,7 @@ public enum ResultCode {
     BIZ_SURVEY_NOT_FOUND(1038, "问卷不存在或未发布"),
     BIZ_SURVEY_CLOSED(1039, "问卷已截止"),
     BIZ_SURVEY_ALREADY_SUBMITTED(1040, "您已提交过问卷"),
+    BIZ_ALREADY_SIGNED(1060, "您已报名该活动，请勿重复提交"),
     BIZ_SURVEY_REQUIRED_FIELD(1041, "存在未填写的必答题"),
 
     // ---- 业务码段（1xxx：讨论群） ----

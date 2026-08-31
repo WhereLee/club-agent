@@ -9,6 +9,7 @@ import logging
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.errors import GraphRecursionError
 
 from . import config
 from .persistence import get_saver
@@ -57,32 +58,38 @@ def run_agent(thread_id: str, message: str) -> tuple[str, list[dict]]:
     # tool_call_id -> args JSON：stream_mode="updates" 下 AI 消息（带 tool_calls）先于同轮 tool 消息到达，
     # 先建映射，tool 消息到达时按 tool_call_id 回查；不能用 tools[-1] 位置匹配（会错位到上一轮记录）
     args_by_call: dict[str, str] = {}
-    for chunk in agent.stream(
-        {"messages": [{"role": "user", "content": message}]},
-        config={
-            "configurable": {"thread_id": thread_id},
-            "recursion_limit": config.CHAT_MAX_STEPS,
-        },
-        stream_mode="updates",
-    ):
-        for node_update in chunk.values():
-            for msg in node_update.get("messages", []):
-                mtype = getattr(msg, "type", "")
-                if mtype == "tool":
-                    cid = str(getattr(msg, "tool_call_id", "") or "")
-                    tools.append({
-                        "tool_name": getattr(msg, "name", ""),
-                        "tool_args": args_by_call.get(cid, ""),
-                        "tool_result": str(getattr(msg, "content", ""))[:4000],
-                    })
-                elif mtype == "ai":
-                    content = getattr(msg, "content", "")
-                    if isinstance(content, str) and content.strip():
-                        reply = content
-                    # 暂存本轮 tool_calls 的入参（同轮 tool 消息到达时按 id 取用）
-                    for tc in getattr(msg, "tool_calls", None) or []:
-                        try:
-                            args_by_call[str(tc.get("id") or "")] = json.dumps(tc.get("args") or {}, ensure_ascii=False)
-                        except Exception:
-                            pass
+    try:
+        for chunk in agent.stream(
+                {"messages": [{"role": "user", "content": message}]},
+            config={
+                "configurable": {"thread_id": thread_id},
+                "recursion_limit": config.CHAT_MAX_STEPS,
+            },
+            stream_mode="updates",
+        ):
+            for node_update in chunk.values():
+                for msg in node_update.get("messages", []):
+                    mtype = getattr(msg, "type", "")
+                    if mtype == "tool":
+                        cid = str(getattr(msg, "tool_call_id", "") or "")
+                        tools.append({
+                            "tool_name": getattr(msg, "name", ""),
+                            "tool_args": args_by_call.get(cid, ""),
+                            "tool_result": str(getattr(msg, "content", ""))[:4000],
+                        })
+                    elif mtype == "ai":
+                        content = getattr(msg, "content", "")
+                        if isinstance(content, str) and content.strip():
+                            reply = content
+                        # 暂存本轮 tool_calls 的入参（同轮 tool 消息到达时按 id 取用）
+                        for tc in getattr(msg, "tool_calls", None) or []:
+                            try:
+                                args_by_call[str(tc.get("id") or "")] = json.dumps(tc.get("args") or {}, ensure_ascii=False)
+                            except Exception:
+                                pass
+    except GraphRecursionError:
+        # ReAct 触顶：返回可读降级文本（Java 落库为失败轮次，不 HTTP 500）
+        logger.warn("问答递归触顶未收敛: thread=%s", thread_id)
+        if not reply:
+            reply = "助手思考过深未收敛，请换个说法重试。"
     return reply, tools

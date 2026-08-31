@@ -71,6 +71,8 @@ async function load() {
     const res = await getActivities(clubId, page.value, size, status.value === '' ? null : Number(status.value))
     rows.value = res.data?.records || []
     total.value = Number(res.data?.total || 0)
+  } catch (e) {
+    // 拦截器已提示
   } finally {
     loading.value = false
   }

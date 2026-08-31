@@ -11,6 +11,7 @@ for _k, _v in {
     "SPRING_DATASOURCE_URL": "jdbc:postgresql://localhost:5432/club_agent",
     "SPRING_DATASOURCE_USERNAME": "postgres",
     "SPRING_DATASOURCE_PASSWORD": "postgres",
+    "AI_DRAFT_INTERNAL_SECRET": "ci-test-secret",
 }.items():
     os.environ.setdefault(_k, _v)
 

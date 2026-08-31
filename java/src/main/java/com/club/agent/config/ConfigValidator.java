@@ -24,6 +24,16 @@ public class ConfigValidator implements ApplicationRunner {
             "JWT_SECRET",
     };
 
+    /** prod 强约束：内部服务密钥缺失时静默降级为无密钥调用（鉴权旁路），必须 fail-fast */
+    private static final String[] PROD_REQUIRED = {
+            "AI_DRAFT_INTERNAL_SECRET",
+            "AGENT_QA_INTERNAL_SECRET",
+            "RAG_INTERNAL_KEY",
+    };
+
+    @Value("${spring.profiles.active:dev}")
+    private String activeProfile;
+
     @Override
     public void run(ApplicationArguments args) {
         List<String> missing = new ArrayList<>();
@@ -31,6 +41,18 @@ public class ConfigValidator implements ApplicationRunner {
             String val = System.getenv(key);
             if (val == null || val.isBlank()) {
                 missing.add(key);
+            }
+        }
+        if ("prod".equalsIgnoreCase(activeProfile)) {
+            for (String key : PROD_REQUIRED) {
+                String val = System.getenv(key);
+                if (val == null || val.isBlank()) {
+                    missing.add(key);
+                }
+            }
+            String storageMode = System.getenv("STORAGE_MODE");
+            if (storageMode == null || !"cos".equalsIgnoreCase(storageMode)) {
+                missing.add("STORAGE_MODE=cos");
             }
         }
         if (!missing.isEmpty()) {

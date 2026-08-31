@@ -83,6 +83,8 @@ const activeSession = ref(null)
 const messages = ref([])
 const input = ref('')
 const sending = ref(false)
+// 消息请求序号：会话切换/发送竞态保护（只采纳最新一次响应）
+let msgSeq = 0
 const msgBox = ref(null)
 
 async function loadSessions(keepActive = true) {
@@ -106,8 +108,11 @@ async function onNewSession() {
 async function onSelectSession(s) {
   activeSessionId.value = s.id
   activeSession.value = s
+  // 请求序号：快速切换会话时只采纳最新一次响应（先发后到的旧响应不覆盖新会话）
+  const seq = ++msgSeq
   try {
     const r = await getQaMessages(clubId, s.id)
+    if (seq !== msgSeq) return
     messages.value = r.data || []
     await nextTick()
     scrollBottom()
@@ -130,20 +135,24 @@ async function onSend() {
   if (!q || sending.value || !activeSessionId.value) return
   input.value = ''
   sending.value = true
+  const seq = ++msgSeq
   // 乐观展示本轮提问（后端返回完整会话后整体替换，事实源以服务端为准）
   messages.value.push({ id: `tmp-${Date.now()}`, role: 'user', content: q })
   await nextTick()
   scrollBottom()
   try {
     const r = await chatQa(clubId, activeSessionId.value, q)
+    if (msgSeq !== seq) return  // 发送期间已切换会话：丢弃本轮响应
     messages.value = r.data || []
     await loadSessions()   // 首问自动命名后刷新标题
     await nextTick()
     scrollBottom()
   } catch (e) {
+    if (msgSeq !== seq) return
     // 失败时回到服务端事实（user 消息已留痕，刷新可见）
     try {
       const r = await getQaMessages(clubId, activeSessionId.value)
+      if (msgSeq !== seq) return
       messages.value = r.data || []
     } catch { /* 忽略 */ }
   } finally {

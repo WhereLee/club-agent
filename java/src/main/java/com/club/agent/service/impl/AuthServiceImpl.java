@@ -112,8 +112,8 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        // 2. 失败锁定检查（Redis 计数 TTL 即锁定时长）
-        String failKey = RedisKeys.LOGIN_FAIL + dto.getUsername();
+        // 2. 失败锁定检查（Redis 计数 TTL 即锁定时长；key 含 IP——纯 username 维度可被构造锁定 DoS）
+        String failKey = RedisKeys.LOGIN_FAIL + ip + ":" + dto.getUsername();
         String failCount = redisTemplate.opsForValue().get(failKey);
         if (failCount != null && Integer.parseInt(failCount) >= loginProperties.getFailMaxCount()) {
             loginLogService.saveAsync(dto.getUsername(), ip, 0, "账号已锁定");

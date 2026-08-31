@@ -74,7 +74,7 @@ export const archiveActivity = (clubId, id) => request.post(`/clubs/${clubId}/ac
 export const getFileLib = (clubId) => request.get(`/clubs/${clubId}/file-lib`)
 export const uploadFileLib = (clubId, formData, activityId) =>
   request.post(`/clubs/${clubId}/file-lib/upload`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+    // 不手动设 Content-Type：axios 对 FormData 会自动生成带 boundary 的头（手动设置会丢 boundary，同 updateAvatar 教训）
     params: activityId ? { activityId } : {},
     timeout: 120000,
   })

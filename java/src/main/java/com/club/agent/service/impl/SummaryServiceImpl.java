@@ -1,6 +1,7 @@
 package com.club.agent.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.club.agent.common.ResultCode;
 import com.club.agent.entity.Activity;
 import com.club.agent.entity.ActivitySummary;
@@ -130,6 +131,15 @@ public class SummaryServiceImpl implements SummaryService {
 
     @Override
     public void resume(Long clubId, Long activityId, Long userId, Map<String, String> answers) {
+        // 请求体校验：条数与单值长度上限（Map 无法用 @Valid 注解，Service 层拦截）
+        if (answers == null || answers.isEmpty() || answers.size() > 20) {
+            throw new BizException(ResultCode.PARAM_ERROR.getCode(), "待确认回答数量异常（1-20 条）");
+        }
+        for (Map.Entry<String, String> e : answers.entrySet()) {
+            if (e.getValue() != null && e.getValue().length() > 2000) {
+                throw new BizException(ResultCode.PARAM_ERROR.getCode(), "单条回答过长（最多 2000 字）");
+            }
+        }
         Activity a = activityMapper.selectById(activityId);
         if (a == null || !a.getClubId().equals(clubId)) {
             throw new BizException(ResultCode.BIZ_ACTIVITY_NOT_FOUND);
@@ -232,12 +242,16 @@ public class SummaryServiceImpl implements SummaryService {
         return aggregateService.aggregate(clubId, activityId);
     }
 
-    /** 经验条目落库（统一经验库 experience_entry，来源活动可追溯） */
+    /** 经验条目落库（统一经验库 experience_entry，来源活动可追溯）
+     *  幂等：重生成/回问恢复会重复进入，先作废本活动旧条目再插入（防污染经验问答与 rag 源——P2 全量审查发现） */
     @SuppressWarnings("unchecked")
     private void saveLessons(Long activityId, Object lessons) {
         if (!(lessons instanceof List<?> list)) {
             return;
         }
+        experienceEntryMapper.update(null, new LambdaUpdateWrapper<ExperienceEntry>()
+                .eq(ExperienceEntry::getActivityId, activityId)
+                .set(ExperienceEntry::getStatus, ExperienceEntry.STATUS_VOIDED));
         for (Object item : list) {
             if (!(item instanceof Map<?, ?> raw)) {
                 continue;

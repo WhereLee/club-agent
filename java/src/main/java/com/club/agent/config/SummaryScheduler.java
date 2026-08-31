@@ -51,6 +51,28 @@ public class SummaryScheduler {
         }
     }
 
+    /** 兜底扫描：SUMMARIZING 且无 summary 行的活动（P1 竞态/进程崩溃后无行可重试），补触发生成 */
+    @Scheduled(fixedDelay = 60_000)
+    public void retryMissingSummaryRow() {
+        List<Activity> stuck = activityMapper.selectList(new LambdaQueryWrapper<Activity>()
+                .eq(Activity::getStatus, Activity.STATUS_SUMMARIZING)
+                .lt(Activity::getUpdatedAt, LocalDateTime.now().minusMinutes(5)));
+        for (Activity a : stuck) {
+            Long cnt = summaryMapper.selectCount(new LambdaQueryWrapper<ActivitySummary>()
+                    .eq(ActivitySummary::getActivityId, a.getId()));
+            if (cnt != null && cnt > 0) {
+                continue;  // 已有行：交给失败重试/手动路径
+            }
+            try {
+                log.info("总结行缺失补偿触发: activity={}", a.getId());
+                summaryService.generate(a.getClubId(), a.getId(), null);
+            } catch (Exception e) {
+                // 提交被拒等异常：单条不影响其余，留给下轮扫描
+                log.warn("总结行缺失补偿提交失败（留给下轮）: activity={}, err={}", a.getId(), e.getMessage());
+            }
+        }
+    }
+
     /** rag 同步补偿：success + 未入库 + 已归档，5 分钟后重推（失败置空 ragFileId 后由本方法接管） */
     @Scheduled(fixedDelay = 300_000)
     public void ragSyncRetry() {

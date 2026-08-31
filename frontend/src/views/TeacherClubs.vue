@@ -19,6 +19,8 @@ async function load() {
   try {
     const res = await getMyClubs()
     clubs.value = res.data
+  } catch (e) {
+    // 拦截器已提示
   } finally {
     loading.value = false
   }

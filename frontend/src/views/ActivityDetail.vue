@@ -357,7 +357,7 @@
       <template #header>
         活动总结
         <el-tag v-if="summary" size="small" :type="summaryStatusType(summary.status)" style="margin-left: 8px">{{ summaryStatusText(summary.status) }}</el-tag>
-        <el-button v-if="summary && summary.status !== 'pending'" size="small" style="float: right" :loading="summarizing" @click="doRegenerate">重新生成</el-button>
+        <el-button v-if="summary && (summary.status === 'success' || summary.status === 'failed')" size="small" style="float: right" :loading="summarizing" @click="doRegenerate">重新生成</el-button>
       </template>
 
       <!-- 未生成 / 生成中 -->

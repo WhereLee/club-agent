@@ -10,7 +10,8 @@ export function connectChat(activityId, { onMessage, onError, onConnected }) {
   const token = localStorage.getItem('club_token')
   if (!token || client) return
   client = new Client({
-    brokerURL: `ws://${location.host}/ws`,
+    // 按当前页协议派生：HTTPS 下 ws:// 会被 mixed-content 拦截
+    brokerURL: `${location.protocol === 'https:' ? 'wss://' : 'ws://'}${location.host}/ws`,
     connectHeaders: { Authorization: `Bearer ${token}` },
     reconnectDelay: 5000,
     heartbeatIncoming: 10000,

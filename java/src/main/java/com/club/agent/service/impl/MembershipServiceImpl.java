@@ -21,6 +21,7 @@ import com.club.agent.vo.TodoVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -115,6 +116,7 @@ public class MembershipServiceImpl implements MembershipService {
     }
 
     @Override
+    @Transactional
     public void appoint(Long clubId, Long membershipId, String role, Long operatorId) {
         Membership membership = requireMembershipOf(clubId, membershipId);
         if (membership.getStatus() != Membership.STATUS_APPROVED) {
@@ -188,6 +190,7 @@ public class MembershipServiceImpl implements MembershipService {
     }
 
     @Override
+    @Transactional
     public void resign(Long clubId, Long userId) {
         Membership membership = membershipMapper.selectOne(
                 new LambdaQueryWrapper<Membership>()

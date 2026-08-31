@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -130,7 +131,12 @@ public class RecordScoreServiceImpl implements RecordScoreService {
         s.setScore(dto.getScore());
         s.setScoreBy(operatorId);
         s.setScoreAt(LocalDateTime.now());
-        scoreMapper.insert(s);
+        try {
+            scoreMapper.insert(s);
+        } catch (DuplicateKeyException e) {
+            // 并发双击穿透预检：唯一约束兜底，翻译为友好提示（与注册/申请的一致性）
+            throw new BizException(ResultCode.BIZ_RECORD_SCORE_DUPLICATE);
+        }
     }
 
     @Override

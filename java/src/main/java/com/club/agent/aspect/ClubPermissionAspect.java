@@ -41,18 +41,23 @@ public class ClubPermissionAspect {
         return pjp.proceed();
     }
 
-    /** 用方法参数名解析 SpEL 表达式得到 clubId */
+    /** 用方法参数名解析 SpEL 表达式得到 clubId；注解误配置按权限错误处理（403 而非 500） */
     private Long resolveClubId(ProceedingJoinPoint pjp, String spel) {
-        MethodSignature signature = (MethodSignature) pjp.getSignature();
-        String[] paramNames = parameterNameDiscoverer.getParameterNames(signature.getMethod());
-        Object[] args = pjp.getArgs();
-        StandardEvaluationContext context = new StandardEvaluationContext();
-        if (paramNames != null) {
-            for (int i = 0; i < paramNames.length; i++) {
-                context.setVariable(paramNames[i], args[i]);
+        try {
+            MethodSignature signature = (MethodSignature) pjp.getSignature();
+            String[] paramNames = parameterNameDiscoverer.getParameterNames(signature.getMethod());
+            Object[] args = pjp.getArgs();
+            StandardEvaluationContext context = new StandardEvaluationContext();
+            if (paramNames != null) {
+                for (int i = 0; i < paramNames.length; i++) {
+                    context.setVariable(paramNames[i], args[i]);
+                }
             }
+            Object value = parser.parseExpression(spel).getValue(context);
+            return value == null ? null : Long.valueOf(value.toString());
+        } catch (Exception e) {
+            // SpEL 语法错/参数名取不到/类型转换失败：配置错误与真实故障分开
+            throw new BizException(ResultCode.FORBIDDEN.getCode(), "权限配置错误，请联系管理员");
         }
-        Object value = parser.parseExpression(spel).getValue(context);
-        return value == null ? null : Long.valueOf(value.toString());
     }
 }

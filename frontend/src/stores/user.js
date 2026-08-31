@@ -7,7 +7,15 @@ import { getUnreadCount } from '../api/message'
 export const useUserStore = defineStore('user', {
   state: () => ({
     token: localStorage.getItem('club_token') || '',
-    userInfo: JSON.parse(localStorage.getItem('club_user') || 'null'),
+    // 损坏的 JSON 会导致 Pinia 实例化时抛异常白屏：解析失败自愈为 null 并清理
+    userInfo: (() => {
+      try {
+        return JSON.parse(localStorage.getItem('club_user') || 'null')
+      } catch (e) {
+        localStorage.removeItem('club_user')
+        return null
+      }
+    })(),
     unreadCount: 0
   }),
 

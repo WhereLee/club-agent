@@ -31,7 +31,9 @@ service.interceptors.response.use(
     return Promise.reject(new Error(res.message))
   },
   (error) => {
-    ElMessage.error('网络异常，请稍后重试')
+    // 有响应 = 业务失败（4xx/5xx），复用响应体 message；无响应 = 真网络异常
+    const msg = error.response?.data?.message
+    ElMessage.error(msg || '网络异常，请稍后重试')
     return Promise.reject(error)
   }
 )

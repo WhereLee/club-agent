@@ -24,6 +24,8 @@ async function load() {
     const res = await getClubs(page.value, 10)
     clubs.value = res.data.records
     total.value = res.data.total
+  } catch (e) {
+    // 拦截器已提示
   } finally {
     loading.value = false
   }

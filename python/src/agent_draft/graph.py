@@ -8,10 +8,12 @@
 """
 import json
 import logging
+import threading
 
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.errors import GraphRecursionError
 
 from . import config
 from .persistence import get_saver
@@ -71,37 +73,52 @@ def run_agent(session_type: str, thread_id: str, message: str) -> tuple[str, lis
     agent = build_agent(session_type)
     tools: list[dict] = []
     reply = ""
-    for chunk in agent.stream(
-        {"messages": [{"role": "user", "content": message}]},
-        config={
-            "configurable": {"thread_id": thread_id},
-            "recursion_limit": config.CHAT_MAX_STEPS,
-        },
-        stream_mode="updates",  # 显式按节点更新消费（chunk = {节点名: {"messages": [...]}}）
-    ):
-        # 按消息类型收集（model 节点出 AI 消息，tools 节点出 ToolMessage；不依赖节点名）
-        for step in chunk.values():
-            for msg in step.get("messages", []):
-                t = getattr(msg, "type", "")
-                if t == "tool":
-                    # 工具输出：填充最近一个同名的未填充调用（支持并行调用）
-                    name = getattr(msg, "name", "")
-                    for tc in reversed(tools):
-                        if tc["tool_name"] == name and not tc["tool_result"]:
-                            tc["tool_result"] = str(getattr(msg, "content", ""))
-                            break
-                elif t == "ai":
-                    calls = getattr(msg, "tool_calls", None)
-                    if calls:
-                        for call in calls:
-                            tools.append({
-                                "tool_name": call.get("name", ""),
-                                "tool_args": _json_dumps(call.get("args", {})),
-                                "tool_result": "",
-                            })
-                    else:
-                        # 无工具调用的 AI 消息 = 最终回复（或中间说明）
-                        reply = str(getattr(msg, "content", ""))
+    # tool_call_id -> tools 下标：updates 模式下 AI 消息（带 tool_calls）先于同轮 tool 消息到达，
+    # 按 id 精确回填（名称+LIFO 匹配在同名并行调用时入参与结果错配——全量审查发现，对齐 agent_qa 的 K47 修复）
+    call_index: dict[str, int] = {}
+    try:
+        for chunk in agent.stream(
+            {"messages": [{"role": "user", "content": message}]},
+            config={
+                "configurable": {"thread_id": thread_id},
+                "recursion_limit": config.CHAT_MAX_STEPS,
+            },
+            stream_mode="updates",  # 显式按节点更新消费（chunk = {节点名: {"messages": [...]}}）
+        ):
+            # 按消息类型收集（model 节点出 AI 消息，tools 节点出 ToolMessage；不依赖节点名）
+            for step in chunk.values():
+                for msg in step.get("messages", []):
+                    t = getattr(msg, "type", "")
+                    if t == "tool":
+                        # 工具输出：按 tool_call_id 回填对应条目；历史消息无 id 时回退名称匹配
+                        cid = str(getattr(msg, "tool_call_id", "") or "")
+                        idx = call_index.get(cid)
+                        if idx is not None:
+                            tools[idx]["tool_result"] = str(getattr(msg, "content", ""))
+                        else:
+                            name = getattr(msg, "name", "")
+                            for tc in reversed(tools):
+                                if tc["tool_name"] == name and not tc["tool_result"]:
+                                    tc["tool_result"] = str(getattr(msg, "content", ""))
+                                    break
+                    elif t == "ai":
+                        calls = getattr(msg, "tool_calls", None)
+                        if calls:
+                            for call in calls:
+                                call_index[str(call.get("id") or "")] = len(tools)
+                                tools.append({
+                                    "tool_name": call.get("name", ""),
+                                    "tool_args": _json_dumps(call.get("args", {})),
+                                    "tool_result": "",
+                                })
+                        else:
+                            # 无工具调用的 AI 消息 = 最终回复（或中间说明）
+                            reply = str(getattr(msg, "content", ""))
+    except GraphRecursionError:
+        # ReAct 循环触顶：返回可读降级文本（Java 落库为失败轮次，不 HTTP 500）
+        logger.warn("对话递归触顶未收敛: type=%s thread=%s", session_type, thread_id)
+        if not reply:
+            reply = "助手思考过深未收敛，请换个说法重试。"
     return reply, tools
 
 
