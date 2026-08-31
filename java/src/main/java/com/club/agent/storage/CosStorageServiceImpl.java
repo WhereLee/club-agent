@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -53,6 +54,16 @@ public class CosStorageServiceImpl extends AbstractStorageService {
     @Override
     public String upload(MultipartFile file, String bizType) {
         validate(file);
+        return doUpload(file, bizType);
+    }
+
+    @Override
+    public String upload(MultipartFile file, String bizType, Set<String> allowedExts) {
+        validate(file, allowedExts);
+        return doUpload(file, bizType);
+    }
+
+    private String doUpload(MultipartFile file, String bizType) {
         String ext = getExtension(file.getOriginalFilename());
         String date = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         String key = bizType + "/" + date + "/"

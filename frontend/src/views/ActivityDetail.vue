@@ -411,6 +411,47 @@
       </el-timeline>
     </el-card>
 
+    <!-- 活动资料（双项目集成：入社团知识库，概念 Agent 起草新活动时自动检索复用） -->
+    <el-card v-if="activity" class="block">
+      <template #header>
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <span>活动资料</span>
+          <el-upload
+            v-if="isManagement"
+            multiple
+            :show-file-list="false"
+            :http-request="queueUploadLib"
+            accept=".txt,.md,.pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.webp"
+          >
+            <el-button size="small" type="primary" :loading="uploadingLib">上传资料</el-button>
+          </el-upload>
+        </div>
+      </template>
+      <div class="hint" style="margin-bottom: 8px">资料将解析入社团知识库，新活动起草时 Agent 可自动检索复用（管理层上传，全员可读）</div>
+      <el-table :data="fileLib" size="small" v-loading="loadingLib">
+        <el-table-column label="文件" min-width="220">
+          <template #default="{ row }">
+            <a :href="row.storageUrl" target="_blank">{{ row.filename }}</a>
+          </template>
+        </el-table-column>
+        <el-table-column label="大小" width="90">
+          <template #default="{ row }">{{ formatSize(row.fileSize) }}</template>
+        </el-table-column>
+        <el-table-column prop="uploaderName" label="上传人" width="110" />
+        <el-table-column label="入库状态" width="110">
+          <template #default="{ row }">
+            <el-tag :type="ragTagType(row.ragStatus)" size="small">{{ ragStatusText(row.ragStatus) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="createdAt" label="上传时间" width="170" />
+        <el-table-column v-if="isManagement" label="操作" width="80">
+          <template #default="{ row }">
+            <el-button size="small" type="danger" link @click="handleDeleteLib(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
     <!-- 发布问卷弹窗 -->
     <el-dialog v-model="surveyDialog" title="发布意向问卷" width="640px">
       <el-form label-width="90px">
@@ -500,7 +541,8 @@ import {
   previewRecordScore, scoreRecord, getRecordScores,
   extractSuggestions, adoptSuggestion, getSuggestions,
   getRewards,
-  getActivitySummary, regenerateSummary, resumeSummary, archiveActivity
+  getActivitySummary, regenerateSummary, resumeSummary, archiveActivity,
+  getFileLib, uploadFileLib, deleteFileLib
 } from '../api/activity'
 import { getClubDetail, getMembers } from '../api/club'
 import { useUserStore } from '../stores/user'
@@ -1026,7 +1068,79 @@ async function doCancel() {
 onMounted(() => {
   load()
   loadMembers()
+  loadFileLib()
 })
+
+// ===== 活动资料（双项目集成：上传 → 入 rag 知识库 → 概念 Agent 检索复用） =====
+const fileLib = ref([])
+const uploadingLib = ref(false)
+const loadingLib = ref(false)
+
+const loadFileLib = async () => {
+  loadingLib.value = true
+  try {
+    const res = await getFileLib(clubId)
+    fileLib.value = res.data || []
+  } catch {
+    fileLib.value = []
+  } finally {
+    loadingLib.value = false
+  }
+}
+
+// 批量上传（J4）：multiple 选中后逐个串行上传，避免并发刷新列表竞态；全部完成后统一刷新
+let uploadQueue = Promise.resolve()
+let uploadPending = 0
+const queueUploadLib = ({ file }) => {
+  uploadPending++
+  uploadingLib.value = true
+  uploadQueue = uploadQueue
+    .then(() => handleUploadLib(file))
+    .finally(() => {
+      uploadPending--
+      if (uploadPending === 0) {
+        uploadingLib.value = false
+        loadFileLib()
+      }
+    })
+  return uploadQueue
+}
+
+const handleUploadLib = async (file) => {
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    await uploadFileLib(clubId, fd, activityId)
+    ElMessage.success(`「${file.name}」上传成功，正在解析入库（入库后可被 Agent 检索）`)
+    await loadFileLib()
+  } catch {
+    // 错误提示由响应拦截器统一弹出（重名/超限/服务未启用等）；批量中单个失败不阻断后续
+  }
+}
+
+const handleDeleteLib = async (row) => {
+  try {
+    await ElMessageBox.confirm(`确认删除资料「${row.filename}」？删除后将不可被检索。`, '确认删除', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await deleteFileLib(clubId, row.id)
+    ElMessage.success('已删除')
+    await loadFileLib()
+  } catch {
+    // 拦截器已弹错
+  }
+}
+
+const ragStatusText = (s) => ({ pending: '待入库', parsing: '解析中', success: '可检索', partial: '可检索(部分)', failed: '入库失败', voided: '已失效' }[s] || s)
+const ragTagType = (s) => ({ success: 'success', partial: 'warning', parsing: 'info', failed: 'danger', voided: 'info' }[s] || '')
+const formatSize = (n) => {
+  if (!n) return '-'
+  if (n < 1024) return n + ' B'
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB'
+  return (n / 1024 / 1024).toFixed(1) + ' MB'
+}
 </script>
 
 <style scoped>

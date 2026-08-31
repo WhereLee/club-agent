@@ -42,6 +42,9 @@ public class ActivitySummary {
 
     private Integer retryCount;
 
+    /** rag 侧总结报告文件 id（归档入库后回填；重生成时软删旧文件重推） */
+    private Long ragFileId;
+
     private Long generatedBy;
 
     private LocalDateTime generatedAt;

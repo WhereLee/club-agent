@@ -31,6 +31,7 @@ import com.club.agent.mapper.SysUserMapper;
 import com.club.agent.service.ActivityOwnership;
 import com.club.agent.service.ActivityService;
 import com.club.agent.service.SummaryService;
+import com.club.agent.service.SummaryRagSyncService;
 import com.club.agent.vo.ActivityVO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -68,6 +69,7 @@ public class ActivityServiceImpl implements ActivityService {
     private final ObjectMapper objectMapper;
     private final ActivitySummaryMapper summaryMapper;
     private final SummaryService summaryService;
+    private final SummaryRagSyncService summaryRagSync;
     private final ActivityOwnership ownership;
 
     @Override
@@ -361,6 +363,8 @@ public class ActivityServiceImpl implements ActivityService {
         trace(activityId, userId, ActivityTrace.ACTION_ARCHIVE, "活动总结完成，活动归档");
         notifyAllMembers(clubId, Message.TYPE_ACTIVITY_ARCHIVED, "活动已归档",
                 "「" + briefOf(activityMapper.selectById(activityId)) + "」已完成总结并归档，可查看总结报告", activityId);
+        // J1：归档即定稿，总结报告推入 rag 知识库（异步，失败不阻断）
+        summaryRagSync.syncToRag(clubId, activityId);
     }
 
     /** 流水留痕（operatorId=null 表示系统动作，如概念转活动） */

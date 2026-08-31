@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -30,6 +31,16 @@ public class LocalStorageServiceImpl extends AbstractStorageService {
     @Override
     public String upload(MultipartFile file, String bizType) {
         validate(file);
+        return doUpload(file, bizType);
+    }
+
+    @Override
+    public String upload(MultipartFile file, String bizType, Set<String> allowedExts) {
+        validate(file, allowedExts);
+        return doUpload(file, bizType);
+    }
+
+    private String doUpload(MultipartFile file, String bizType) {
         String ext = getExtension(file.getOriginalFilename());
         String date = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         String filename = UUID.randomUUID().toString().replace("-", "") + "." + ext;

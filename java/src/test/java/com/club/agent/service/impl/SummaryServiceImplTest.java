@@ -11,6 +11,7 @@ import com.club.agent.mapper.ActivityMapper;
 import com.club.agent.mapper.ActivitySummaryMapper;
 import com.club.agent.mapper.ExperienceEntryMapper;
 import com.club.agent.service.SummaryAggregateService;
+import com.club.agent.service.SummaryRagSyncService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
@@ -52,6 +53,7 @@ class SummaryServiceImplTest {
     @Mock ExperienceEntryMapper experienceEntryMapper;
     @Mock SummaryAggregateService aggregateService;
     @Mock PythonClientFactory pythonClientFactory;
+    @Mock SummaryRagSyncService summaryRagSync;
     // json() 依赖真实序列化（mock 返回 null 导致 questions/answers 落空），手动注入真实 ObjectMapper
 
     @InjectMocks SummaryServiceImpl summaryService;

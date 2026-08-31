@@ -85,6 +85,23 @@ ai:
     model: ${LLM_MODEL:mimo-v2.5}
     timeout-seconds: ${LLM_TIMEOUT_SECONDS:60}
 
+# ---------- RAG 知识服务（双项目集成：活动文件入 rag 知识库 + 概念 Agent 检索） ----------
+# 检索器模式：只调检索不接生成；internal-key 必须与 rag 侧 INTERNAL_API_KEY 一致
+rag:
+  enabled: ${RAG_ENABLED:true}                          # 总开关：false 时文件库上传 503、检索只走 SQL 经验源
+  base-url: ${RAG_BASE_URL:http://127.0.0.1:8090}
+  timeout-seconds: ${RAG_TIMEOUT_SECONDS:30}
+  internal-key: ${RAG_INTERNAL_KEY:}                    # prod 必须注入（与 rag 的 INTERNAL_API_KEY 同值）
+
+# ---------- 管理层经验问答（Python agent-qa 独立 Agent 服务，双项目集成阶段2） ----------
+# 与 agent-draft 并列：独立端口/会话/权限边界；检索源经 /ai/knowledge 双源
+qa:
+  enabled: ${AGENT_QA_ENABLED:true}                     # 总开关：false 时问答接口返回 404（会话管理不受影响）
+  base-url: ${AGENT_QA_BASE_URL:http://127.0.0.1:8095}
+  timeout-seconds: ${AGENT_QA_TIMEOUT_SECONDS:120}      # 一轮 ReAct 可能多次检索，超时同起草放宽
+  internal-secret: ${AGENT_QA_INTERNAL_SECRET:dev-internal-secret-2026}   # 调 Python 内部密钥头（prod 必须注入）
+
+
 # 预设老师账号（模拟旧系统存量数据；生产部署用环境变量覆盖强密码）
 preset:
   teacher:

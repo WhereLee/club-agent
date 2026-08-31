@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]  # club-agent/
 CLUB_ENV = PROJECT_ROOT / ".env"
-RAG_ENV = PROJECT_ROOT.parent / ".env"  # rag/.env（LLM 密钥来源）
+RAG_ENV = PROJECT_ROOT.parent / "rag" / ".env"  # 目录重整后 rag 项目在工作区根/rag/ 下（LLM 密钥来源）
 
 # 先加载项目自身 .env，再补 rag/.env（不覆盖已存在的变量）
 if CLUB_ENV.exists():

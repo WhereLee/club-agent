@@ -14,6 +14,8 @@ const router = createRouter({
     { path: '/clubs/:clubId/activities', component: () => import('../views/ActivityList.vue') },
     { path: '/clubs/:clubId/activities/:id', component: () => import('../views/ActivityDetail.vue') },
     { path: '/clubs/:clubId/activities/:id/chat', component: () => import('../views/ChatView.vue') },
+    // 管理层经验问答（双项目集成阶段2：独立 Agent 服务）
+    { path: '/clubs/:clubId/qa', component: () => import('../views/ExperienceQa.vue') },
     { path: '/my-clubs', component: () => import('../views/MyClubs.vue') },
     { path: '/messages', component: () => import('../views/Messages.vue') },
     { path: '/profile', component: () => import('../views/Profile.vue') },

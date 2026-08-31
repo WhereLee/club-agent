@@ -1,0 +1,17 @@
+[
+  {"query": "上次骑行活动的预算执行比例是多少", "expected": "eval_cycling_review.md"},
+  {"query": "环湖骑行遇到过哪些问题", "expected": "eval_cycling_review.md"},
+  {"query": "骑行活动几点出发比较好", "expected": "eval_cycling_review.md"},
+  {"query": "徒步需要准备哪些装备", "expected": "eval_hiking_guide.md"},
+  {"query": "下雨天徒步路线怎么选", "expected": "eval_hiking_guide.md"},
+  {"query": "徒步一组多少人合适", "expected": "eval_hiking_guide.md"},
+  {"query": "露营营地选址有什么要求", "expected": "eval_camping_handbook.md"},
+  {"query": "篝火区域离帐篷要多远", "expected": "eval_camping_handbook.md"},
+  {"query": "露营的餐食怎么安排", "expected": "eval_camping_handbook.md"},
+  {"query": "破冰游戏怎么设计不冷场", "expected": "eval_icebreaker_plan.md"},
+  {"query": "破冰活动物资人均多少钱", "expected": "eval_icebreaker_plan.md"},
+  {"query": "破冰怎么分组", "expected": "eval_icebreaker_plan.md"},
+  {"query": "社团报销流程是什么", "expected": "eval_budget_rule.md"},
+  {"query": "商家赞助怎么对接", "expected": "eval_budget_rule.md"},
+  {"query": "活动预算的应急科目比例是多少", "expected": "eval_budget_rule.md"}
+]

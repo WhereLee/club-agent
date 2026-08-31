@@ -288,6 +288,7 @@ onMounted(load)
       <p class="desc">{{ detail.description || '（暂无简介）' }}</p>
       <div class="actions">
         <el-button v-if="canCreateConcept" type="primary" :disabled="activeConcept" @click="router.push(`/clubs/${clubId}/concept`)">发起活动</el-button>
+        <el-button v-if="canCreateConcept" plain @click="router.push(`/clubs/${clubId}/qa`)">经验问答</el-button>
         <el-button v-if="canUpdate" @click="openEdit">编辑社团</el-button>
         <el-button v-if="myStatus === -1" type="primary" @click="onApply">申请加入</el-button>
         <el-button v-else-if="myStatus === 2" type="primary" plain @click="onApply">重新申请</el-button>

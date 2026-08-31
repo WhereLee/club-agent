@@ -11,12 +11,14 @@ import com.club.agent.dto.ExperienceSaveDTO;
 import com.club.agent.dto.SkillSaveDTO;
 import com.club.agent.service.ConceptAiService;
 import com.club.agent.service.ExperienceService;
+import com.club.agent.service.KnowledgeService;
 import com.club.agent.service.SkillService;
 import com.club.agent.util.SecurityUtils;
 import com.club.agent.vo.ClubContextVO;
 import com.club.agent.vo.ConceptVO;
 import com.club.agent.vo.DraftMessageVO;
 import com.club.agent.vo.ExperienceSearchVO;
+import com.club.agent.vo.KnowledgeSearchVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -47,6 +49,7 @@ public class ConceptAiController {
 
     private final ConceptAiService conceptAiService;
     private final ExperienceService experienceService;
+    private final KnowledgeService knowledgeService;
     private final SkillService skillService;
 
     @PostMapping("/{clubId}/concepts/{id}/ai/chat")
@@ -80,6 +83,16 @@ public class ConceptAiController {
     @Operation(summary = "经验检索（search_experience 工具；D3 真实检索 + 该发起人 thinking_pattern 注入）")
     public R<ExperienceSearchVO> experience(@PathVariable Long clubId, @RequestParam String q) {
         return R.ok(experienceService.experience(clubId, SecurityUtils.getUserId(), q));
+    }
+
+    @GetMapping("/{clubId}/ai/knowledge")
+    @ClubPermission(clubId = "#clubId", permission = "activity:manage")
+    @Operation(summary = "双源知识检索（双项目集成：SQL 经验条目 + rag 活动资料；rag 故障降级单源）")
+    public R<KnowledgeSearchVO> knowledge(@PathVariable Long clubId,
+                                          @RequestParam String q,
+                                          @RequestParam(defaultValue = "8") int topK) {
+        return R.ok(knowledgeService.knowledge(clubId, SecurityUtils.getUserId(), q,
+                Math.max(1, Math.min(topK, 20))));
     }
 
     @PostMapping("/{clubId}/ai/experience")

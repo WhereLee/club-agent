@@ -11,6 +11,7 @@ import com.club.agent.mapper.ActivitySummaryMapper;
 import com.club.agent.mapper.ExperienceEntryMapper;
 import com.club.agent.config.PythonClientFactory;
 import com.club.agent.service.SummaryAggregateService;
+import com.club.agent.service.SummaryRagSyncService;
 import com.club.agent.service.SummaryService;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.club.agent.vo.SummaryVO;
@@ -44,6 +45,7 @@ public class SummaryServiceImpl implements SummaryService {
     private final ObjectMapper objectMapper;
     private final SummaryAggregateService aggregateService;
     private final PythonClientFactory pythonClient;
+    private final SummaryRagSyncService summaryRagSync;
 
     @Async("aiExecutor")
     @Override
@@ -108,6 +110,10 @@ public class SummaryServiceImpl implements SummaryService {
                 s.setReport(json(report));
                 s.setGeneratedAt(LocalDateTime.now());
                 saveLessons(activityId, resp.get("lessons"));
+                // J1：归档后重生成成功 → 重推总结报告入 rag（软删旧文件）
+                if (a.getStatus() == Activity.STATUS_ARCHIVED) {
+                    summaryRagSync.syncToRag(clubId, activityId);
+                }
             }
         } catch (Exception e) {
             s.setStatus(ActivitySummary.STATUS_FAILED);
@@ -147,6 +153,10 @@ public class SummaryServiceImpl implements SummaryService {
             s.setUpdatedAt(LocalDateTime.now());
             summaryMapper.updateById(s);
             saveLessons(activityId, resp.get("lessons"));
+            // J1：归档后回问恢复生成成功 → 同步重推总结报告入 rag
+            if (a.getStatus() == Activity.STATUS_ARCHIVED) {
+                summaryRagSync.syncToRag(clubId, activityId);
+            }
         } catch (BizException e) {
             throw e;
         } catch (Exception e) {

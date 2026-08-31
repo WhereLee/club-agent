@@ -85,7 +85,12 @@ public enum ResultCode {
     // ---- 业务码段（1xxx：活动后阶段） ----
     BIZ_SUMMARY_NOT_GENERATED(1053, "活动总结尚未生成，请先生成总结"),
     BIZ_SUMMARY_QUESTIONS_PENDING(1054, "存在未处理的待确认问题，请先回答"),
-    BIZ_ARCHIVE_STATE_FORBIDDEN(1055, "活动当前状态不可归档");
+    BIZ_ARCHIVE_STATE_FORBIDDEN(1055, "活动当前状态不可归档"),
+
+    // ---- 业务码段（1xxx：活动资料库 / 双项目集成） ----
+    BIZ_FILE_LIB_RAG_DISABLED(1056, "知识服务未启用，暂不可上传活动资料"),
+    BIZ_FILE_LIB_NOT_FOUND(1057, "资料不存在或已删除"),
+    BIZ_QA_SESSION_NOT_FOUND(1058, "问答会话不存在或已删除");
 
     private final int code;
     private final String message;

@@ -69,3 +69,13 @@ export const getActivitySummary = (clubId, id) => request.get(`/clubs/${clubId}/
 export const regenerateSummary = (clubId, id) => request.post(`/clubs/${clubId}/activities/${id}/summary/regenerate`, null, { timeout: 180000 })
 export const resumeSummary = (clubId, id, answers) => request.post(`/clubs/${clubId}/activities/${id}/summary/resume`, answers, { timeout: 180000 })
 export const archiveActivity = (clubId, id) => request.post(`/clubs/${clubId}/activities/${id}/archive`)
+
+// ===== 活动资料库（双项目集成：文件入 rag 知识库，概念 Agent 起草时检索复用） =====
+export const getFileLib = (clubId) => request.get(`/clubs/${clubId}/file-lib`)
+export const uploadFileLib = (clubId, formData, activityId) =>
+  request.post(`/clubs/${clubId}/file-lib/upload`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    params: activityId ? { activityId } : {},
+    timeout: 120000,
+  })
+export const deleteFileLib = (clubId, libId) => request.delete(`/clubs/${clubId}/file-lib/${libId}`)

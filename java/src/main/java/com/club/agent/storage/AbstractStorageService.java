@@ -5,6 +5,7 @@ import com.club.agent.config.UploadProperties;
 import com.club.agent.exception.BizException;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Collection;
 import java.util.Locale;
 
 /**
@@ -19,8 +20,13 @@ public abstract class AbstractStorageService implements StorageService {
         this.uploadProperties = uploadProperties;
     }
 
-    /** 文件校验：非空 / 大小上限 / 扩展名白名单 */
+    /** 文件校验：非空 / 大小上限 / 扩展名白名单（默认配置） */
     protected void validate(MultipartFile file) {
+        validate(file, uploadProperties.getAllowedTypes());
+    }
+
+    /** 文件校验（业务方指定白名单，双项目集成：文档类型 ≠ 头像图片类型） */
+    protected void validate(MultipartFile file, Collection<String> allowedExts) {
         if (file == null || file.isEmpty()) {
             throw new BizException("文件不能为空");
         }
@@ -28,7 +34,7 @@ public abstract class AbstractStorageService implements StorageService {
             throw new BizException(ResultCode.BIZ_FILE_TOO_LARGE);
         }
         String ext = getExtension(file.getOriginalFilename());
-        if (ext == null || !uploadProperties.getAllowedTypes().contains(ext)) {
+        if (ext == null || !allowedExts.contains(ext)) {
             throw new BizException(ResultCode.BIZ_FILE_TYPE_ERROR);
         }
     }
