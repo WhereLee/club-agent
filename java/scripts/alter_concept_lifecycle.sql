@@ -7,7 +7,14 @@
 -- 5. concept_vote：投票状态机（块 B 使用）；concept_trace：全量时间线（审计/展示）
 -- =============================================================
 
-ALTER TABLE concept_session RENAME COLUMN idea TO reason;
+-- 仅老库（存在 idea 列）需要改名；init_db 新库已是 reason，直接跳过（干净库部署兼容）
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'concept_session' AND column_name = 'idea') THEN
+        ALTER TABLE concept_session RENAME COLUMN idea TO reason;
+    END IF;
+END $$;
 ALTER TABLE concept_session DROP COLUMN IF EXISTS deleted;
 ALTER TABLE concept_session ADD COLUMN IF NOT EXISTS deadline TIMESTAMP;
 
