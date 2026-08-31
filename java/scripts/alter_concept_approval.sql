@@ -18,4 +18,4 @@ CREATE TABLE IF NOT EXISTS message (
 COMMENT ON TABLE  message IS '站内消息（概念作废/通过通知；前端以待办聚合展示）';
 COMMENT ON COLUMN message.type IS '类型：concept_void=概念作废 concept_approved=概念通过';
 
-CREATE INDEX ix_message_recipient ON message (recipient_id, read_flag, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_message_recipient ON message (recipient_id, read_flag, created_at DESC);

@@ -24,5 +24,5 @@ COMMENT ON COLUMN concept_session.status IS '状态：1=起草中 2=已提交待
 COMMENT ON COLUMN concept_session.idea IS '发起者的想法描述（可空；后续 AI 起草会话的输入入口）';
 COMMENT ON COLUMN concept_session.submitted_at IS '提交时间（status=2 时写入）';
 
-CREATE INDEX ix_concept_session_club ON concept_session (club_id, created_at DESC);
-CREATE INDEX ix_concept_session_user ON concept_session (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_concept_session_club ON concept_session (club_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_concept_session_user ON concept_session (user_id, created_at DESC);

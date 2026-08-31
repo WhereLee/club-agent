@@ -57,6 +57,6 @@ CREATE TABLE IF NOT EXISTS form_answer (
 
 COMMENT ON TABLE form_answer IS '字段答案（多选 value 存 JSON 数组字符串）';
 
-CREATE INDEX ix_form_field_template ON form_field (template_id, sort_order);
-CREATE INDEX ix_form_submission_activity ON form_submission (activity_id);
-CREATE INDEX ix_form_answer_submission ON form_answer (submission_id);
+CREATE INDEX IF NOT EXISTS ix_form_field_template ON form_field (template_id, sort_order);
+CREATE INDEX IF NOT EXISTS ix_form_submission_activity ON form_submission (activity_id);
+CREATE INDEX IF NOT EXISTS ix_form_answer_submission ON form_answer (submission_id);

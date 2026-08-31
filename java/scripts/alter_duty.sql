@@ -15,4 +15,4 @@ CREATE TABLE IF NOT EXISTS activity_duty (
 
 COMMENT ON TABLE activity_duty IS '活动分工项（正式文件发布时写入；列表型结构，不走表单引擎）';
 
-CREATE INDEX ix_activity_duty_activity ON activity_duty (activity_id, sort_order);
+CREATE INDEX IF NOT EXISTS ix_activity_duty_activity ON activity_duty (activity_id, sort_order);

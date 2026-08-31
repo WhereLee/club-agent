@@ -19,4 +19,4 @@ CREATE TABLE IF NOT EXISTS file_draft_session (
 
 COMMENT ON TABLE file_draft_session IS '正式文件撰写会话（AI 对话留痕；章节草稿经人采纳后写入 form 引擎）';
 
-CREATE INDEX ix_file_draft_session_activity ON file_draft_session (activity_id, created_at);
+CREATE INDEX IF NOT EXISTS ix_file_draft_session_activity ON file_draft_session (activity_id, created_at);

@@ -38,4 +38,4 @@ CREATE TABLE IF NOT EXISTS activity_discussion_summary (
 );
 
 COMMENT ON TABLE activity_discussion_summary IS '讨论结束快照：每成员消息数与高质量消息数（频率标准数据源，奖励"高频参与分"）';
-CREATE INDEX ix_discussion_summary_activity ON activity_discussion_summary (activity_id);
+CREATE INDEX IF NOT EXISTS ix_discussion_summary_activity ON activity_discussion_summary (activity_id);

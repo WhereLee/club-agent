@@ -14,4 +14,4 @@ CREATE TABLE IF NOT EXISTS activity_attendance (
 );
 
 COMMENT ON TABLE activity_attendance IS '活动签到（执行中开放；未报名参加者不可签）';
-CREATE INDEX ix_activity_attendance_activity ON activity_attendance (activity_id);
+CREATE INDEX IF NOT EXISTS ix_activity_attendance_activity ON activity_attendance (activity_id);

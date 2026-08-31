@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS activity (
 COMMENT ON TABLE  activity IS '活动主表（概念通过后自动创建，活动前/中/后三阶段状态机）';
 COMMENT ON COLUMN activity.status IS '状态：1=公示中 2=问卷中 3=讨论中 4=已发布 5=已取消';
 
-CREATE INDEX ix_activity_club_status ON activity (club_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_activity_club_status ON activity (club_id, status, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS activity_trace (
     id             BIGINT       PRIMARY KEY,
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS activity_trace (
 
 COMMENT ON TABLE activity_trace IS '活动全量流水：谁在什么时候做了什么（时间线展示与审计）';
 
-CREATE INDEX ix_activity_trace_activity ON activity_trace (activity_id, created_at);
+CREATE INDEX IF NOT EXISTS ix_activity_trace_activity ON activity_trace (activity_id, created_at);
 
 -- 活动通知关联（公示/取消等；存量列不受影响，幂等）
 ALTER TABLE message ADD COLUMN IF NOT EXISTS ref_activity_id BIGINT;

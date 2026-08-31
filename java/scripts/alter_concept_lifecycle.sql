@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS concept_vote (
 COMMENT ON TABLE  concept_vote IS '概念投票（发起人不投票；复议=两人重投）';
 COMMENT ON COLUMN concept_vote.round IS '轮次：1=首次 2=复议';
 
-CREATE INDEX ix_concept_vote ON concept_vote (concept_id, round);
+CREATE INDEX IF NOT EXISTS ix_concept_vote ON concept_vote (concept_id, round);
 
 -- ---------- 概念流水表（全量时间线：谁/何时/什么，审计与老师视图） ----------
 CREATE TABLE IF NOT EXISTS concept_trace (
@@ -50,7 +50,7 @@ ALTER TABLE concept_trace ALTER COLUMN operator_id DROP NOT NULL;
 
 COMMENT ON TABLE  concept_trace IS '概念全量流水（谁在什么时候做了什么，时间线展示与审计）';
 
-CREATE INDEX ix_concept_trace ON concept_trace (concept_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS ix_concept_trace ON concept_trace (concept_id, created_at ASC);
 
 -- 超时扫描查询索引（status IN (2,3,4) AND deadline < now()）
 CREATE INDEX IF NOT EXISTS ix_concept_status_deadline

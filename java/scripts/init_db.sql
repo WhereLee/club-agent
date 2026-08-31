@@ -32,8 +32,8 @@ COMMENT ON COLUMN sys_user.email      IS '邮箱（全局唯一）';
 COMMENT ON COLUMN sys_user.status     IS '状态：1=正常 0=禁用';
 COMMENT ON COLUMN sys_user.deleted    IS '逻辑删除：0=正常 1=已删';
 
-CREATE UNIQUE INDEX uk_sys_user_username ON sys_user (username) WHERE deleted = 0;
-CREATE UNIQUE INDEX uk_sys_user_email    ON sys_user (email)    WHERE deleted = 0;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_sys_user_username ON sys_user (username) WHERE deleted = 0;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_sys_user_email    ON sys_user (email)    WHERE deleted = 0;
 
 -- ---------- 社团表 ----------
 CREATE TABLE IF NOT EXISTS club (
@@ -51,8 +51,8 @@ CREATE TABLE IF NOT EXISTS club (
 COMMENT ON TABLE  club            IS '社团表';
 COMMENT ON COLUMN club.teacher_id IS '指导老师（创建社团的老师，可负责多个社团）';
 
-CREATE UNIQUE INDEX uk_club_name ON club (name) WHERE deleted = 0;
-CREATE INDEX ix_club_teacher ON club (teacher_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_club_name ON club (name) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS ix_club_teacher ON club (teacher_id);
 
 -- ---------- 成员关系表（用户在某个社团里的身份） ----------
 CREATE TABLE IF NOT EXISTS membership (
@@ -75,9 +75,9 @@ COMMENT ON COLUMN membership.status       IS '状态：0=申请中 1=已通过 2
 COMMENT ON COLUMN membership.approved_by  IS '审批人（指导老师/社长/副社长）';
 
 -- 一人一社团仅一条关系
-CREATE UNIQUE INDEX uk_membership_user_club ON membership (user_id, club_id);
-CREATE INDEX ix_membership_club ON membership (club_id);
-CREATE INDEX ix_membership_role ON membership (role_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_membership_user_club ON membership (user_id, club_id);
+CREATE INDEX IF NOT EXISTS ix_membership_club ON membership (club_id);
+CREATE INDEX IF NOT EXISTS ix_membership_role ON membership (role_id);
 
 -- 约束：管理层职务规则（三个硬约束，数据库层兑底，应用层给友好提示）
 -- 1. 跨社团唯一：同一用户不能同时担任多个社团的管理层
@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS rbac_role (
 COMMENT ON TABLE  rbac_role            IS '角色表（动态，非枚举）';
 COMMENT ON COLUMN rbac_role.is_management IS '是否管理层（社长/副社长/老师），用于管理层唯一约束';
 
-CREATE UNIQUE INDEX uk_rbac_role_code ON rbac_role (code) WHERE deleted = 0;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_rbac_role_code ON rbac_role (code) WHERE deleted = 0;
 
 -- ---------- 权限点表 ----------
 CREATE TABLE IF NOT EXISTS rbac_permission (
@@ -175,7 +175,7 @@ CREATE TABLE IF NOT EXISTS rbac_permission (
 COMMENT ON TABLE  rbac_permission            IS '权限点表（业务动作/菜单/按钮级）';
 COMMENT ON COLUMN rbac_permission.type       IS '类型：MENU=菜单 BUTTON=按钮 ACTION=业务动作';
 
-CREATE UNIQUE INDEX uk_rbac_permission_code ON rbac_permission (code) WHERE deleted = 0;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_rbac_permission_code ON rbac_permission (code) WHERE deleted = 0;
 
 -- ---------- 角色-权限关联表（RBAC 多对多） ----------
 CREATE TABLE IF NOT EXISTS rbac_role_permission (
@@ -187,7 +187,7 @@ CREATE TABLE IF NOT EXISTS rbac_role_permission (
 
 COMMENT ON TABLE rbac_role_permission IS '角色-权限关联表（RBAC）';
 
-CREATE UNIQUE INDEX uk_role_permission ON rbac_role_permission (role_id, permission_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_role_permission ON rbac_role_permission (role_id, permission_id);
 
 -- ---------- 操作日志表（@Log 注解落库） ----------
 CREATE TABLE IF NOT EXISTS oper_log (
@@ -209,8 +209,8 @@ CREATE TABLE IF NOT EXISTS oper_log (
 
 COMMENT ON TABLE oper_log IS '操作日志表（审计留痕）';
 
-CREATE INDEX ix_oper_log_operator ON oper_log (operator_id, created_at DESC);
-CREATE INDEX ix_oper_log_created  ON oper_log (created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_oper_log_operator ON oper_log (operator_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_oper_log_created  ON oper_log (created_at DESC);
 
 -- ---------- 登录日志表（成功/失败留痕，安全审计） ----------
 CREATE TABLE IF NOT EXISTS login_log (
@@ -224,8 +224,8 @@ CREATE TABLE IF NOT EXISTS login_log (
 
 COMMENT ON TABLE login_log IS '登录日志表（防爆破审计）';
 
-CREATE INDEX ix_login_log_username ON login_log (username, created_at DESC);
-CREATE INDEX ix_login_log_created  ON login_log (created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_login_log_username ON login_log (username, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_login_log_created  ON login_log (created_at DESC);
 
 -- ---------- 概念表（概念诞生阶段：管理层酝酿 → 老师批复后转活动） ----------
 CREATE TABLE IF NOT EXISTS concept_session (
@@ -248,11 +248,11 @@ COMMENT ON TABLE  concept_session IS '概念（活动的酝酿阶段，仅管理
 COMMENT ON COLUMN concept_session.reason IS '发起理由（必填；LangGraph AI 起草会话的输入入口）';
 COMMENT ON COLUMN concept_session.deadline IS '当前阶段截止时间（提交=提交+36h；进入待老师批复=进入+36h）';
 
-CREATE INDEX ix_concept_session_club ON concept_session (club_id, created_at DESC);
-CREATE INDEX ix_concept_session_user ON concept_session (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_concept_session_club ON concept_session (club_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_concept_session_user ON concept_session (user_id, created_at DESC);
 
 -- 唯一性：一个社团同一时间最多一个活跃概念（活跃集 1-4；通过/作废后释放）
-CREATE UNIQUE INDEX uk_concept_active ON concept_session (club_id) WHERE status IN (1, 2, 3, 4);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_concept_active ON concept_session (club_id) WHERE status IN (1, 2, 3, 4);
 
 -- ---------- 概念投票表（状态机数据：判断两票/复议轮） ----------
 CREATE TABLE IF NOT EXISTS concept_vote (
@@ -268,7 +268,7 @@ CREATE TABLE IF NOT EXISTS concept_vote (
 
 COMMENT ON TABLE  concept_vote IS '概念投票（发起人不投票；复议=两人重投）';
 
-CREATE INDEX ix_concept_vote ON concept_vote (concept_id, round);
+CREATE INDEX IF NOT EXISTS ix_concept_vote ON concept_vote (concept_id, round);
 
 -- ---------- 概念流水表（全量时间线：谁/何时/什么，审计与老师视图） ----------
 CREATE TABLE IF NOT EXISTS concept_trace (
@@ -283,7 +283,7 @@ CREATE TABLE IF NOT EXISTS concept_trace (
 
 COMMENT ON TABLE  concept_trace IS '概念全量流水（谁在什么时候做了什么，时间线展示与审计）';
 
-CREATE INDEX ix_concept_trace ON concept_trace (concept_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS ix_concept_trace ON concept_trace (concept_id, created_at ASC);
 
 -- 超时扫描查询索引（status IN (2,3,4) AND deadline < now()）
 CREATE INDEX IF NOT EXISTS ix_concept_status_deadline
@@ -303,7 +303,7 @@ CREATE TABLE IF NOT EXISTS message (
 
 COMMENT ON TABLE  message IS '站内消息（概念作废/通过通知；前端以待办聚合展示）';
 
-CREATE INDEX ix_message_recipient ON message (recipient_id, read_flag, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_message_recipient ON message (recipient_id, read_flag, created_at DESC);
 
 -- ---------- 概念起草会话（AI 对话 Agent 消息留痕；事实源，checkpoint 只是运行态缓存） ----------
 CREATE TABLE IF NOT EXISTS concept_draft_session (
@@ -322,4 +322,4 @@ CREATE TABLE IF NOT EXISTS concept_draft_session (
 
 COMMENT ON TABLE  concept_draft_session IS '概念起草会话：AI 对话消息留痕（人/AI/工具三方），审计与续聊的事实源';
 
-CREATE INDEX ix_draft_session_concept ON concept_draft_session (concept_id, created_at);
+CREATE INDEX IF NOT EXISTS ix_draft_session_concept ON concept_draft_session (concept_id, created_at);

@@ -25,5 +25,5 @@ CREATE TABLE IF NOT EXISTS activity_chat_member (
 
 COMMENT ON TABLE activity_chat_member IS '讨论群成员快照（问卷截止后统一生成；订阅/发送/拉历史鉴权）';
 
-CREATE INDEX ix_chat_message_activity ON chat_message (activity_id, created_at);
-CREATE INDEX ix_chat_member_activity ON activity_chat_member (activity_id);
+CREATE INDEX IF NOT EXISTS ix_chat_message_activity ON chat_message (activity_id, created_at);
+CREATE INDEX IF NOT EXISTS ix_chat_member_activity ON activity_chat_member (activity_id);

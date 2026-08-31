@@ -16,4 +16,4 @@ CREATE TABLE IF NOT EXISTS activity_signup (
 );
 
 COMMENT ON TABLE activity_signup IS '活动报名（执行阶段起点；问卷不感兴趣者限制参加）';
-CREATE INDEX ix_activity_signup_activity ON activity_signup (activity_id);
+CREATE INDEX IF NOT EXISTS ix_activity_signup_activity ON activity_signup (activity_id);
