@@ -125,8 +125,8 @@
             <template v-for="(m, i) in aiMsgs" :key="i">
               <!-- user -->
               <div v-if="m.role === 'user'" class="ai-msg ai-user">{{ m.content }}</div>
-              <!-- assistant -->
-              <div v-else-if="m.role === 'assistant'" class="ai-msg ai-assistant">{{ m.content }}</div>
+              <!-- assistant：Markdown 渲染（LLM 产出含 **粗体**/标题/列表） -->
+              <MdText v-else-if="m.role === 'assistant'" class="ai-msg ai-assistant" :text="m.content" />
               <!-- tool -->
               <div v-else class="ai-msg ai-tool">
                 <div class="ai-tool-name">🔧 {{ m.toolName }}</div>
@@ -390,7 +390,7 @@
           <el-descriptions-item label="经验库">沉淀 {{ (summary.lessons || []).length }} 条</el-descriptions-item>
         </el-descriptions>
         <el-divider>AI 总结报告</el-divider>
-        <div class="report-text">{{ summary.reportText }}</div>
+        <MdText class="report-text" :text="summary.reportText" />
         <div v-if="activity.status === 8" class="hint" style="margin-top: 8px">确认无误后可点击上方「归档活动」，归档后全员可查看本报告</div>
       </template>
     </el-card>
@@ -546,6 +546,7 @@ import {
 } from '../api/activity'
 import { getClubDetail, getMembers } from '../api/club'
 import { useUserStore } from '../stores/user'
+import MdText from '../components/MdText.vue'
 
 const route = useRoute()
 const router = useRouter()

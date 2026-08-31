@@ -42,7 +42,9 @@
             </el-collapse>
             <div v-else class="msg-row" :class="m.role">
               <div class="msg-role">{{ m.role === 'user' ? '我' : 'AI' }}</div>
-              <div class="msg-content">{{ m.content }}</div>
+              <!-- AI 回答：Markdown 渲染；用户提问保持纯文本 -->
+              <MdText v-if="m.role !== 'user'" class="msg-content" :text="m.content" />
+              <div v-else class="msg-content">{{ m.content }}</div>
             </div>
           </template>
           <div v-if="sending" class="msg-row assistant">
@@ -72,6 +74,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
 import { chatQa, createQaSession, deleteQaSession, getQaMessages, listQaSessions } from '../api/qa'
+import MdText from '../components/MdText.vue'
 
 const route = useRoute()
 const router = useRouter()

@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createConcept, getConcepts, getConceptDetail, saveConceptDraft, submitConcept, abandonConcept, chatAi, getAiSession, applyAiDraft, saveExperience, saveSkill } from '../api/concept'
+import MdText from '../components/MdText.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -325,6 +326,8 @@ async function onAbandon() {
                   <el-tag v-else type="success" size="small">已落盘</el-tag>
                 </div>
               </div>
+              <!-- AI 回复：Markdown 渲染（LLM 产出含 **粗体**/标题/列表）；用户输入保持纯文本 -->
+              <MdText v-else-if="m.role === 'assistant'" class="msg-content" :text="m.content" />
               <div v-else class="msg-content">{{ m.content }}</div>
               <div class="msg-time">{{ (m.createdAt || '').slice(11, 16) }}</div>
             </div>

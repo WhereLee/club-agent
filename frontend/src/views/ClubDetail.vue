@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import MdText from '../components/MdText.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getClubDetail, getMembers, applyClub, approveMember, rejectMember, appointMember, resignClub, updateClub } from '../api/club'
 import { getConcepts, getConceptDetail, withdrawConcept, abandonConcept, voteConcept, reviewConcept } from '../api/concept'
@@ -441,7 +442,7 @@ onMounted(load)
 
       <template v-if="viewItem?.aiBrief">
         <h4 class="sub-title">发起人思路（AI 简析）</h4>
-        <div class="ai-brief">{{ viewItem.aiBrief }}</div>
+        <MdText class="ai-brief" :text="viewItem.aiBrief" />
       </template>
 
       <template v-if="viewItem?.votes?.length">
