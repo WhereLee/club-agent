@@ -17,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -123,6 +124,23 @@ class SummaryRagSyncServiceImplTest {
 
         verify(ragClientFactory).deactivateFile(99L, CLUB);
         verify(ragClientFactory).ingestBytes(any(byte[].class), anyString(), eq(CLUB), eq("summary"));
+    }
+
+    @Test
+    @DisplayName("自愈标记：ingest 失败时 ragFileId 置空（旧文件已软删，下次触发走全新推送）")
+    void ingestFails_clearsRagFileId() {
+        when(summaryMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(summary("success", 99L));
+        when(activityMapper.selectById(ACT)).thenReturn(activity());
+        lenient().when(experienceEntryMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+        when(ragClientFactory.ingestBytes(any(byte[].class), anyString(), eq(CLUB), eq("summary")))
+                .thenThrow(new RuntimeException("rag down"));
+
+        syncService.syncToRag(CLUB, ACT);  // 吞异常不抛
+
+        verify(ragClientFactory).deactivateFile(99L, CLUB);
+        ArgumentCaptor<ActivitySummary> cap = ArgumentCaptor.forClass(ActivitySummary.class);
+        verify(summaryMapper).updateById(cap.capture());
+        assertThat(cap.getValue().getRagFileId()).isNull();
     }
 
     @Test

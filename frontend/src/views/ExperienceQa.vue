@@ -33,9 +33,10 @@
       <template v-else>
         <div ref="msgBox" class="msg-list">
           <template v-for="m in messages" :key="m.id">
-            <!-- 工具调用：折叠展示检索过程（审计与溯源） -->
+            <!-- 工具调用：折叠展示检索过程（审计与溯源）；入参与结果都展示，收起态标题也能看到检索词 -->
             <el-collapse v-if="m.role === 'tool'" class="tool-item">
-              <el-collapse-item :title="`检索过程：${m.toolName || 'search_knowledge'}`">
+              <el-collapse-item :title="`检索过程：${m.toolName || 'search_knowledge'}${m.toolArgs ? '　' + m.toolArgs : ''}`">
+                <div v-if="m.toolArgs" class="tool-args">检索入参：{{ m.toolArgs }}</div>
                 <pre class="tool-content">{{ m.content }}</pre>
               </el-collapse-item>
             </el-collapse>
@@ -180,6 +181,7 @@ onMounted(loadSessions)
 .msg-row.user .msg-content { background: #f0f9eb; }
 .msg-content.thinking { color: #909399; }
 .tool-item { margin: 0 0 12px 36px; max-width: 80%; }
+.tool-args { font-size: 12px; color: #909399; margin-bottom: 6px; }
 .tool-content { white-space: pre-wrap; font-size: 12px; color: #606266; margin: 0; }
 .input-bar { display: flex; gap: 8px; margin-top: 12px; align-items: flex-end; }
 .input-bar .el-button { height: 54px; }

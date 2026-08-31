@@ -108,6 +108,16 @@ class QaServiceImplTest {
     }
 
     @Test
+    @DisplayName("创建会话：超长标题截断到 100（VARCHAR(100) 防御）")
+    void createSession_titleOverLimit_truncated() {
+        qaService.createSession(CLUB, USER, "长".repeat(150));
+
+        ArgumentCaptor<QaSession> captor = ArgumentCaptor.forClass(QaSession.class);
+        verify(sessionMapper).insert(captor.capture());
+        assertThat(captor.getValue().getTitle()).hasSize(100);
+    }
+
+    @Test
     @DisplayName("归属门：他人会话 → 403；不存在 → 1058")
     void ownershipGate() {
         when(sessionMapper.selectById(SESSION)).thenReturn(session(OTHER));

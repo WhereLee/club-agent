@@ -363,8 +363,13 @@ public class ActivityServiceImpl implements ActivityService {
         trace(activityId, userId, ActivityTrace.ACTION_ARCHIVE, "活动总结完成，活动归档");
         notifyAllMembers(clubId, Message.TYPE_ACTIVITY_ARCHIVED, "活动已归档",
                 "「" + briefOf(activityMapper.selectById(activityId)) + "」已完成总结并归档，可查看总结报告", activityId);
-        // J1：归档即定稿，总结报告推入 rag 知识库（异步，失败不阻断）
-        summaryRagSync.syncToRag(clubId, activityId);
+        // J1：归档即定稿，总结报告推入 rag 知识库（异步，失败不阻断）。
+        // 池满时 @Async 提交在调用方线程抛 TaskRejectedException，必须吞掉，否则归档事务回滚
+        try {
+            summaryRagSync.syncToRag(clubId, activityId);
+        } catch (Exception e) {
+            log.warn("总结报告 rag 同步提交失败（不阻断归档主流程）: activity={} err={}", activityId, e.getMessage());
+        }
     }
 
     /** 流水留痕（operatorId=null 表示系统动作，如概念转活动） */

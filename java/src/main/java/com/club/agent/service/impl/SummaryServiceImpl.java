@@ -110,9 +110,14 @@ public class SummaryServiceImpl implements SummaryService {
                 s.setReport(json(report));
                 s.setGeneratedAt(LocalDateTime.now());
                 saveLessons(activityId, resp.get("lessons"));
-                // J1：归档后重生成成功 → 重推总结报告入 rag（软删旧文件）
+                // J1：归档后重生成成功 → 重推总结报告入 rag（软删旧文件）。
+                // 必须吞掉 @Async 提交异常（池满 TaskRejectedException），否则外层 catch 把已成功的总结误置 FAILED
                 if (a.getStatus() == Activity.STATUS_ARCHIVED) {
-                    summaryRagSync.syncToRag(clubId, activityId);
+                    try {
+                        summaryRagSync.syncToRag(clubId, activityId);
+                    } catch (Exception rex) {
+                        log.warn("总结报告 rag 同步提交失败（报告仍有效）: activity={} err={}", activityId, rex.getMessage());
+                    }
                 }
             }
         } catch (Exception e) {
@@ -153,9 +158,13 @@ public class SummaryServiceImpl implements SummaryService {
             s.setUpdatedAt(LocalDateTime.now());
             summaryMapper.updateById(s);
             saveLessons(activityId, resp.get("lessons"));
-            // J1：归档后回问恢复生成成功 → 同步重推总结报告入 rag
+            // J1：归档后回问恢复生成成功 → 同步重推总结报告入 rag（吞提交异常，理由同 generate）
             if (a.getStatus() == Activity.STATUS_ARCHIVED) {
-                summaryRagSync.syncToRag(clubId, activityId);
+                try {
+                    summaryRagSync.syncToRag(clubId, activityId);
+                } catch (Exception rex) {
+                    log.warn("总结报告 rag 同步提交失败（报告仍有效）: activity={} err={}", activityId, rex.getMessage());
+                }
             }
         } catch (BizException e) {
             throw e;

@@ -39,6 +39,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 
 /**
  * 总结服务单测（Q3 补网，K31-K35 修复区回归）：
@@ -172,6 +173,27 @@ class SummaryServiceImplTest {
         ArgumentCaptor<ActivitySummary> cap = ArgumentCaptor.forClass(ActivitySummary.class);
         verify(summaryMapper).updateById(cap.capture());
         assertThat(cap.getValue().getStatus()).isEqualTo(ActivitySummary.STATUS_FAILED);
+    }
+
+    @Test
+    @DisplayName("generate 归档后重推：rag 同步提交异常不污染已成功的总结（P1 回归）")
+    void generate_syncSubmitRejected_keepsSuccess() {
+        when(activityMapper.selectById(ACT)).thenReturn(activity(Activity.STATUS_ARCHIVED));
+        when(summaryMapper.selectOne(any())).thenReturn(null);
+        when(aggregateService.aggregate(any(), any())).thenReturn(Map.of());
+        Map<String, Object> resp = Map.of(
+                "status", ActivitySummary.STATUS_SUCCESS,
+                "report", Map.of("metrics", Map.of(), "report_text", "归档后重生成"));
+        when(response.body(Map.class)).thenReturn(resp);
+        doThrow(new RuntimeException("TaskRejectedException（池满）")).when(summaryRagSync).syncToRag(CLUB, ACT);
+
+        summaryService.generate(CLUB, ACT, null);
+
+        // 修复前：提交异常被外层 catch 吞并置 FAILED；修复后吞在重推点，状态保持 SUCCESS
+        verify(summaryMapper).insert(any(ActivitySummary.class));
+        ArgumentCaptor<ActivitySummary> cap = ArgumentCaptor.forClass(ActivitySummary.class);
+        verify(summaryMapper).updateById(cap.capture());
+        assertThat(cap.getValue().getStatus()).isEqualTo(ActivitySummary.STATUS_SUCCESS);
     }
 
     @Test

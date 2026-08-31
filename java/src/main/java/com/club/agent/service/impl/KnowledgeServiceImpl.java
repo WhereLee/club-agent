@@ -48,7 +48,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
 
     @Override
     public KnowledgeSearchVO knowledge(Long clubId, Long userId, String q, int topK) {
-        String cacheKey = cacheKey(clubId, q, topK);
+        String cacheKey = cacheKey(clubId, userId, q, topK);
         KnowledgeSearchVO cached = readCache(cacheKey);
         if (cached != null) {
             return cached;
@@ -91,8 +91,9 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         return vo;
     }
 
-    private String cacheKey(Long clubId, String q, int topK) {
-        return "knowledge:" + clubId + ":" + topK + ":" + md5(q);
+    /** 缓存 key 含 userId：源 A 结果按人隔离（thinking_pattern 仅本人可见），缺 userId 会导致同社团串读 */
+    private String cacheKey(Long clubId, Long userId, String q, int topK) {
+        return "knowledge:" + clubId + ":" + userId + ":" + topK + ":" + md5(q);
     }
 
     private static String md5(String s) {

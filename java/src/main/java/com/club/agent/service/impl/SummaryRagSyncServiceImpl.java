@@ -81,11 +81,19 @@ public class SummaryRagSyncServiceImpl implements SummaryRagSyncService {
                 log.warn("旧总结报告软删失败（继续重推）: activity={} err={}", activityId, e.getMessage());
             }
         }
-        long fileId = ragClientFactory.ingestBytes(md, filename(a), clubId, "summary");
-        s.setRagFileId(fileId);
-        s.setUpdatedAt(LocalDateTime.now());
-        summaryMapper.updateById(s);
-        log.info("总结报告已入 rag: activity={} ragFileId={}", activityId, fileId);
+        try {
+            long fileId = ragClientFactory.ingestBytes(md, filename(a), clubId, "summary");
+            s.setRagFileId(fileId);
+            s.setUpdatedAt(LocalDateTime.now());
+            summaryMapper.updateById(s);
+            log.info("总结报告已入 rag: activity={} ragFileId={}", activityId, fileId);
+        } catch (Exception e) {
+            // ingest 失败：旧文件已软删，ragFileId 置空表示“当前无有效入库文件”，下次触发走全新推送自愈
+            s.setRagFileId(null);
+            s.setUpdatedAt(LocalDateTime.now());
+            summaryMapper.updateById(s);
+            throw e;
+        }
     }
 
     /** 文件名：活动简述 + 固定后缀（净化非法字符，.md 属 rag 白名单） */

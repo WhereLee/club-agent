@@ -45,7 +45,9 @@ public class QaServiceImpl implements QaService {
         QaSession s = new QaSession();
         s.setClubId(clubId);
         s.setUserId(userId);
-        s.setTitle(StringUtils.hasText(title) ? title.trim() : QaSession.DEFAULT_TITLE);
+        String t = StringUtils.hasText(title) ? title.trim() : QaSession.DEFAULT_TITLE;
+        // title 列 VARCHAR(100)：截断防超长直接 DB 异常 500（与首问命名截 20 字同思路）
+        s.setTitle(t.length() > 100 ? t.substring(0, 100) : t);
         s.setStatus(QaSession.STATUS_VALID);
         s.setCreatedAt(LocalDateTime.now());
         s.setUpdatedAt(LocalDateTime.now());

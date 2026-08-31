@@ -73,7 +73,7 @@ ai:
     enabled: ${AI_DRAFT_ENABLED:true}                 # 总开关：false 时 AI 接口返回 404
     base-url: ${AI_DRAFT_BASE_URL:http://127.0.0.1:8094}
     timeout-seconds: ${AI_DRAFT_TIMEOUT_SECONDS:120}   # 调 Python 超时：MiMo 一轮 ReAct 可能 40-60s，必须放宽
-    internal-secret: ${AI_DRAFT_INTERNAL_SECRET:dev-internal-secret-2026}   # S5：调 Python 内部密钥头（prod 必须注入）
+    internal-secret: ${AI_DRAFT_INTERNAL_SECRET:}   # S5：调 Python 内部密钥头（未注入时 Factory 启动告警；prod 必须注入）
     skill-dir: ${SKILL_DIR:../skills}                   # D4：SKILL.md 落盘目录（相对 java 运行目录，部署用环境变量覆盖）
     checkpoint-ttl-days: ${CHECKPOINT_TTL_DAYS:30}      # A1：终态概念（通过/作废）N 天后清理 checkpoint 三表，防 PostgresSaver 膨胀
 
@@ -99,7 +99,7 @@ qa:
   enabled: ${AGENT_QA_ENABLED:true}                     # 总开关：false 时问答接口返回 404（会话管理不受影响）
   base-url: ${AGENT_QA_BASE_URL:http://127.0.0.1:8095}
   timeout-seconds: ${AGENT_QA_TIMEOUT_SECONDS:120}      # 一轮 ReAct 可能多次检索，超时同起草放宽
-  internal-secret: ${AGENT_QA_INTERNAL_SECRET:dev-internal-secret-2026}   # 调 Python 内部密钥头（prod 必须注入）
+  internal-secret: ${AGENT_QA_INTERNAL_SECRET:}   # 未注入时 Factory 告警不带密钥头；prod 必须注入（原默认弱密钥会架空告警机制）
 
 
 # 预设老师账号（模拟旧系统存量数据；生产部署用环境变量覆盖强密码）
