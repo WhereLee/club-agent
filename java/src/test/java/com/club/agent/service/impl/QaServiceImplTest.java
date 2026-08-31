@@ -21,9 +21,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClient;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -48,6 +51,8 @@ class QaServiceImplTest {
     @Mock QaSessionMapper sessionMapper;
     @Mock QaMessageMapper messageMapper;
     @Mock QaPythonClientFactory qaPythonClient;
+    @Mock StringRedisTemplate redisTemplate;
+    @Mock ValueOperations<String, String> valueOps;
 
     @InjectMocks QaServiceImpl qaService;
 
@@ -84,6 +89,9 @@ class QaServiceImplTest {
         // body(Object) 与 body(BodyInserter) 重载歧义：显式 Object 类型避免 any() 选错重载（K37）
         lenient().when(post.body(any(Object.class))).thenReturn(post);
         lenient().when(post.retrieve()).thenReturn(response);
+        // 会话并发互斥锁：默认获取成功（P3-1 修复后 chat 先取锁）
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        lenient().when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
     }
 
     private QaSession session(Long userId) {
@@ -131,6 +139,21 @@ class QaServiceImplTest {
                 .isInstanceOf(BizException.class)
                 .extracting(e -> ((BizException) e).getCode())
                 .isEqualTo(ResultCode.BIZ_QA_SESSION_NOT_FOUND.getCode());
+    }
+
+    @Test
+    @DisplayName("并发互斥：同会话锁被占用时拒绝提问（防 PostgresSaver 同 thread 并发写）")
+    void chat_lockHeld_rejects() {
+        when(sessionMapper.selectById(SESSION)).thenReturn(session(USER));
+        when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(false);
+
+        assertThatThrownBy(() -> qaService.chat(CLUB, USER, SESSION, "第二个提问", "Bearer t"))
+                .isInstanceOf(BizException.class)
+                .hasMessageContaining("正在回答中");
+
+        // 锁未获取：不落 user 消息、不调 Python
+        verify(messageMapper, never()).insert(any(QaMessage.class));
+        verify(qaPythonClient, never()).get();
     }
 
     @Test

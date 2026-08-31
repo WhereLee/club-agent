@@ -40,7 +40,11 @@ public class RepeatSubmitAspect {
             return pjp.proceed();
         } catch (Throwable e) {
             // 失败路径立即释放标记：失败可马上重试，防抖只对成功生效
-            redisTemplate.delete(key);
+            try {
+                redisTemplate.delete(key);
+            } catch (Exception ignored) {
+                // Redis 恰好故障时不能覆盖原始业务异常（用户应看到"验证码错误"而非"Redis 故障"）
+            }
             throw e;
         }
     }

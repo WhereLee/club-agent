@@ -22,6 +22,9 @@ public final class RedisKeys {
     /** 防重复提交标记 */
     public static final String REPEAT_SUBMIT = PREFIX + "repeat:";
 
+    /** 问答会话并发互斥锁（同一会话同时只能一个提问在跑，防 PostgresSaver 同 thread 并发写） */
+    public static final String QA_CHAT_LOCK = PREFIX + "qa:chat:";
+
     private RedisKeys() {
     }
 }

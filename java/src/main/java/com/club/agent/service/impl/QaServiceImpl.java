@@ -9,15 +9,18 @@ import com.club.agent.exception.BizException;
 import com.club.agent.mapper.QaMessageMapper;
 import com.club.agent.mapper.QaSessionMapper;
 import com.club.agent.service.QaService;
+import com.club.agent.util.RedisKeys;
 import com.club.agent.vo.QaMessageVO;
 import com.club.agent.vo.QaSessionVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +38,7 @@ public class QaServiceImpl implements QaService {
     private final QaSessionMapper sessionMapper;
     private final QaMessageMapper messageMapper;
     private final QaPythonClientFactory qaPythonClient;
+    private final StringRedisTemplate redisTemplate;
 
     /** 问答服务总开关：关闭时会话接口仍可用，问答拒绝（与 ai.draft.enabled 同语义） */
     @Value("${qa.enabled:true}")
@@ -79,7 +83,21 @@ public class QaServiceImpl implements QaService {
             throw new BizException(ResultCode.NOT_FOUND);
         }
         QaSession s = owned(clubId, userId, sessionId);
+        // 同一会话并发提问互斥：多端同时提问会并发写同一 LangGraph thread（PostgresSaver），上下文互相覆盖
+        String lockKey = RedisKeys.QA_CHAT_LOCK + sessionId;
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent(lockKey, "1", Duration.ofSeconds(30));
+        if (Boolean.FALSE.equals(locked)) {
+            throw new BizException("该会话正在回答中，请稍候");
+        }
+        try {
+            return chatInner(clubId, userId, sessionId, message, authHeader, s);
+        } finally {
+            redisTemplate.delete(lockKey);
+        }
+    }
 
+    private List<QaMessageVO> chatInner(Long clubId, Long userId, Long sessionId, String message, String authHeader,
+                                        QaSession s) {
         // 1) 落 user 消息（先落：无论 AI 成败，提问都有留痕）
         QaMessage userMsg = new QaMessage();
         userMsg.setSessionId(sessionId);

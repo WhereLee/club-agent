@@ -6,6 +6,12 @@ spring:
   jackson:
     time-zone: GMT+8
     date-format: yyyy-MM-dd HH:mm:ss
+  servlet:
+    multipart:
+      # 与资料库 50MB / 头像 5MB 业务上限对齐（Spring 默认 1MB 会在进 Service 前直接拒绝大文件）
+      max-file-size: ${SPRING_MULTIPART_MAX_FILE_SIZE:50MB}
+      max-request-size: ${SPRING_MULTIPART_MAX_REQUEST_SIZE:60MB}
+      file-size-threshold: ${SPRING_MULTIPART_FILE_SIZE_THRESHOLD:10MB}  # >10MB 落盘临时文件，防大文件并发上传撑爆堆
 
 server:
   port: 8093
